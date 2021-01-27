@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include "GF.h"
 using namespace std;
 
 typedef unsigned int bits32;
@@ -35,4 +36,37 @@ protected:
 	bit *CL, *CR;
 	int* llr_layer_vec, *bit_layer_vec;
 	bit* _frozen_bits;
+};
+
+
+
+// q-ary SC decoder.
+class SC_Decoder_qary;
+
+class qary_distribution
+{
+	friend class SC_Decoder_qary;
+public:
+	qary_distribution(int m);
+	~qary_distribution();
+
+protected:
+	double* dist;
+	int m;
+	int L;
+};
+
+class SC_Decoder_qary : protected SC_Decoder
+{
+public:
+	SC_Decoder_qary(int N, int m, const bit* frozen_bits, const GF& alpha);
+	void sc_decode_qary(const qary_distribution* probs, GF* estimated_info_syms);
+
+protected:
+	static void up_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, qary_distribution* result, GF alpha, int len);
+	static void down_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, const GF* u1, qary_distribution* result, GF alpha, int len);
+
+protected:
+	GF alpha;
+	int m;
 };

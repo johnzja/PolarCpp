@@ -189,4 +189,71 @@ void SC_Decoder::sc_decode(const LLR* llr, bit* estimated_info_bits)
 
 // TODO: Adapt "bit" in the code into any q-ary symbol.
 
+/*           q-ary probabilities                 */
+qary_distribution::qary_distribution(int m):m(m)
+{
+	GF_ASSERT(m >= GF_M_MIN && m <= GF_M_MAX);
+	L = (0x1) << m;
+	dist = new double[L];
+}
+
+qary_distribution::~qary_distribution()
+{
+	delete[] dist;
+}
+
+void SC_Decoder_qary::up_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, qary_distribution* result, GF alpha, int len)
+{
+	ASSERT(llr_x1->m == llr_x2->m);
+	ASSERT(llr_x1->m == alpha.m);
+
+	int _m = llr_x1->m;
+	int q = (0x1) << _m;
+
+	for (int i = 0; i < len; i++)
+	{
+		double* result_dist = result[i].dist;
+		double* x1_dist = llr_x1[i].dist;
+		double* x2_dist = llr_x2[i].dist;
+
+		for (short u1 = 0; u1 < q; u1++)
+		{
+			result_dist[u1] = 0.0;
+			for (short u2 = 0; u2 < q; u2++)
+			{
+				GF r = GF(_m, u1) + alpha * GF(_m, u2);
+				result_dist[u1] += x1_dist[r.x] * x2_dist[u2];
+			}
+			
+			// normalization may not be useful.
+			result_dist[u1] /= q;
+		}
+	}
+}
+
+void SC_Decoder_qary::down_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, const GF* u1, qary_distribution* result, GF alpha, int len)
+{
+	ASSERT(llr_x1->m == llr_x2->m);
+	ASSERT(llr_x1->m == alpha.m);
+
+	int _m = llr_x1->m;
+	int q = (0x1) << _m;
+
+	for (int i = 0; i < len; i++)
+	{
+		double* result_dist = result[i].dist;
+		double* x1_dist = llr_x1[i].dist;
+		double* x2_dist = llr_x2[i].dist;
+		const GF& u1_i = u1[i];
+
+		for (short u2 = 0; u2 < q; u2++)
+		{
+			GF r = u1_i + alpha * GF(_m, u2);
+			result_dist[u2] = x1_dist[r.x] * x2_dist[u2];
+			result_dist[u2] /= q;
+		}
+
+	}
+}
+
 
