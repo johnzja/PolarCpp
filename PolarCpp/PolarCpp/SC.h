@@ -50,8 +50,11 @@ public:
 	qary_distribution(int m);
 	~qary_distribution();
 
-protected:
+	static qary_distribution* newqd(int m, int N);
+	static void destroyqd(qary_distribution* pqd);
+public:
 	double* dist;
+public:
 	int m;
 	int L;
 };

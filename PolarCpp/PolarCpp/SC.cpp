@@ -216,6 +216,23 @@ qary_distribution::~qary_distribution()
 	delete[] dist;
 }
 
+qary_distribution* qary_distribution::newqd(int m, int N)
+{
+	// generate qary_distribution objects.
+	qary_distribution* y = (qary_distribution*) operator new(N * sizeof(qary_distribution));
+	//qary_distribution* y = new qary_distribution[N];
+	for (int i = 0; i < N; i++)
+	{
+		new (y + i)qary_distribution(m);	// initialize, using "placement new".
+	}
+	return y;
+}
+
+void qary_distribution::destroyqd(qary_distribution* pqd)
+{
+	delete pqd;
+}
+
 void SC_Decoder_qary::up_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, qary_distribution* result, GF alpha, int len)
 {
 	ASSERT(llr_x1->m == llr_x2->m);
@@ -281,6 +298,11 @@ SC_Decoder_qary::SC_Decoder_qary(int N, int m, const bit* frozen_bits, const GF&
 	// _frozen_bits and the number K is available in SC decoder.
 	_qary_frozen_syms = NULL;
 	K *= m;									// Return bits.
+
+	// construct P, CL and CR.
+	P = qary_distribution::newqd(m, N-1);
+	CL = new GF[N - 1];
+	CR = new GF[N - 1];
 }
 
 SC_Decoder_qary::SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& alpha) :m(m), SC_Decoder(N, NULL, false), alpha(alpha)
@@ -296,12 +318,16 @@ SC_Decoder_qary::SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& 
 		_qary_frozen_syms[i] = frozen_syms[i];
 		K += __popcnt16(frozen_syms[i].x);		// count the number of 1's.
 	}
+
+	P = qary_distribution::newqd(m, N - 1);
+	CL = new GF[N - 1];
+	CR = new GF[N - 1];
 }
 
 SC_Decoder_qary:: ~SC_Decoder_qary()
 {
 	delete[] _qary_frozen_syms;
-	delete[] P;
+	qary_distribution::destroyqd(P);
 	delete[] CL;
 	delete[] CR;
 

@@ -73,6 +73,8 @@ public:
 
 	static void destroy_GFTable();
 
+	GF get_prim();
+
 	int m;
 	short x;
 	static vector<GFTable*> GFT_vec;

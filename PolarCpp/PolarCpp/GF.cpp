@@ -33,6 +33,12 @@ void GF::destroy_GFTable()
 	}
 }
 
+GF GF::get_prim()
+{
+	GF_ASSERT(m >= GF_M_MIN && m <= GF_M_MAX);
+	GF::construct_GFTable(m);
+	return GFT_vec[m]->primitive_chain[1];
+}
 
 GF operator+(const GF& a, const GF& b)
 {
@@ -173,6 +179,7 @@ GFTable::GFTable(int m)
 	discrete_log = new short[q];	// discrete_log[x] means log(GF(x)) w.r.t primitive element alpha = primitive_chain[1].
 	discrete_log[0] = -1;				// log(-1) is not defined.
 	discrete_log[1] = 0;					
+	discrete_log[i] = 1;
 
 	for (int k = 2; k < q - 1; k++)
 	{
