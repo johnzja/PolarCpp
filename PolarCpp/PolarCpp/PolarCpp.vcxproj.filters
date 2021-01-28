@@ -21,9 +21,15 @@
     <ClCompile Include="SC.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="GF.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SC.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="GF.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

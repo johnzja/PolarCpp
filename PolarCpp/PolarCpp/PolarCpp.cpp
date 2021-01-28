@@ -12,7 +12,7 @@
 
 using namespace std;
 
-void polar_encode(const bit* u, bit* x, int N, const bit* frozen_bits)
+void polar_encode(const bit* d, bit* x, int N, const bit* frozen_bits)
 {
 	ASSERT(!(N&(N - 1)));
 	int n = log2(N);
@@ -22,7 +22,7 @@ void polar_encode(const bit* u, bit* x, int N, const bit* frozen_bits)
 	{
 		if (!frozen_bits[i])
 		{
-			x[i] = u[k++];
+			x[i] = d[k++];
 		}
 		else
 		{
@@ -48,6 +48,16 @@ void polar_encode(const bit* u, bit* x, int N, const bit* frozen_bits)
 			}
 		}
 	}
+}
+
+void qary_polar_encode(const bit* d, GF* x, int N, const bit* frozen_bits)
+{
+	// input: bitstream, output: GF symbol stream. Fully frozen.
+}
+
+void qary_polar_encode(const bit* d, GF* x, int N, const GF* frozen_syms)
+{
+	// input: bitstream, output: GF symbol stream. Partially frozen.
 }
 
 int main()

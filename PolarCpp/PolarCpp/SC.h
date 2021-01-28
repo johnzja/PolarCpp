@@ -18,7 +18,7 @@ typedef double LLR;
 class SC_Decoder
 {
 public:
-	SC_Decoder(int N, const bit* frozen_bits);
+	SC_Decoder(int N, const bit* frozen_bits, bool binary = true);		// if binary == false, then this object is in fact a q-ary decoder.
 
 	void sc_decode(const LLR* llr, bit* estimated_info_bits);
 
@@ -59,14 +59,23 @@ protected:
 class SC_Decoder_qary : protected SC_Decoder
 {
 public:
-	SC_Decoder_qary(int N, int m, const bit* frozen_bits, const GF& alpha);
-	void sc_decode_qary(const qary_distribution* probs, GF* estimated_info_syms);
+	SC_Decoder_qary(int N, int m, const bit* frozen_bits, const GF& alpha);					// constructor of fully-frozen decoder.
+	SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& alpha);				// constructor of partially-frozen decoder.
+	void sc_decode_qary(const qary_distribution* probs, bit* estimated_info_bits);
+
+	virtual ~SC_Decoder_qary();
 
 protected:
 	static void up_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, qary_distribution* result, GF alpha, int len);
 	static void down_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, const GF* u1, qary_distribution* result, GF alpha, int len);
+	
+	int find_max(const qary_distribution& dist);
 
 protected:
+	GF* _qary_frozen_syms;
+	qary_distribution* P;
+	GF *CL, *CR;
+	bool partially_frozen;
 	GF alpha;
 	int m;
 };

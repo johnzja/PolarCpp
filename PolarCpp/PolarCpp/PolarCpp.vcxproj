@@ -151,10 +151,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="GF.cpp" />
     <ClCompile Include="SC.cpp" />
     <ClCompile Include="PolarCpp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GF.h" />
     <ClInclude Include="SC.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
