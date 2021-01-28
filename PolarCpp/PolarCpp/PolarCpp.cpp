@@ -116,7 +116,7 @@ void qary_polar_encode(const bit* d, GF* x, int N, int m, const GF* frozen_syms,
 
 		for (int j = 0; j < m; j++)
 		{
-			if (fs.x & ((0x1) << j))
+			if (!(fs.x & ((0x1) << j)))			// if not frozen:
 			{
 				if (d[k++])
 				{
@@ -128,7 +128,7 @@ void qary_polar_encode(const bit* d, GF* x, int N, int m, const GF* frozen_syms,
 
 	for (int layer = 1; layer <= n; layer++)
 	{
-		int step = (0x1) << layer;	// start from 2.
+		int step = (0x1) << layer;			// start from 2.
 		int inner = step >> 1;
 		int blocks = N >> layer;
 
@@ -139,7 +139,6 @@ void qary_polar_encode(const bit* d, GF* x, int N, int m, const GF* frozen_syms,
 			for (int i = 0; i < inner; i++)
 			{
 				x[block_up + i] = x[block_up + i] + alpha * x[block_down + i];
-				x[block_down + i] = x[block_down + i];				// may be unuseful.
 			}
 		}
 	}
@@ -262,24 +261,26 @@ double test_SC()
 	return r;
 }
 
-int main()
+double test_qary_SC()
 {
 	std::default_random_engine e;
 	std::normal_distribution<double> n(0, 1);
 
 	// Study polar codes using normal distribution generator.
-	bit frozen_bits[] = { 1, 1, 1, 0, 1, 0, 0, 0 };
+	// Use (8,4) 4-ary code with partially frozen.
+	GF frozen_bits[] = { GF(2,3), GF(2,3), GF(2,3), GF(2,0), GF(2,3), GF(2,0), GF(2,0), GF(2,0) };
 
 	int N = 8, M = 4;
 	int N_sim = 5000;
 	int m = 2;						// 4-ary code.
 
+	double R = 0.5;
 	double Ebn0 = 2.5;
-	double sigma = 1 / sqrt(2 * (M / ((double)(N))))*pow(10, -Ebn0 / 20);
+	double sigma = 1 / sqrt(2 * R)*pow(10, -Ebn0 / 20);
 	cout << "Evaluate 4-ary SC @ Eb/n0 = " << Ebn0 << endl;
 
 	int N_bits = N * m;
-	int M_bits = M * m;
+	int M_bits = 8;
 
 	bit* bits_to_encode = new bit[M_bits];
 	GF* syms_encoded = new GF[N];
@@ -291,7 +292,7 @@ int main()
 	// Find primitive alpha.
 	GF t(m, 0);
 	GF alpha = t.get_prim();
-	
+
 	// Construct q-ary SC decoder.
 	SC_Decoder_qary scd(N, m, frozen_bits, alpha);
 
@@ -317,7 +318,7 @@ int main()
 
 		// Step5: Display number of error bits.
 
-		for (int i = 0; i < M; i++)
+		for (int i = 0; i < M_bits; i++)
 		{
 			if (bits_decoded[i] != bits_to_encode[i])
 			{
@@ -337,6 +338,13 @@ int main()
 	delete[] bits_decoded;
 
 	cout << "Test q-ary SC complete!" << endl;
+	return r;
+}
+
+int main()
+{
+	test_SC();
+	test_qary_SC();
 	return 0;
 }
 

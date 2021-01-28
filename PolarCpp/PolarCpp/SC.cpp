@@ -316,7 +316,7 @@ SC_Decoder_qary::SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& 
 	for (int i = 0; i < N; i++)
 	{
 		_qary_frozen_syms[i] = frozen_syms[i];
-		K += __popcnt16(frozen_syms[i].x);		// count the number of 1's.
+		K += (m - __popcnt16(frozen_syms[i].x));		// count the number of 1's.
 	}
 
 	P = qary_distribution::newqd(m, N - 1);
@@ -439,7 +439,7 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estima
 			// partially frozen.
 			short partially_frozen_pattern = _qary_frozen_syms[phi].x;
 			int one_cnt = __popcnt16(partially_frozen_pattern);
-			if (0 == one_cnt)
+			if (m == one_cnt)
 			{
 				// completely frozen.
 				if (phi_mod_2 == 0)CL[0] = GF(m, 0);
@@ -450,7 +450,7 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estima
 				double* P0_dist = P[0].dist;
 				for (short i = 0; i < (0x1 << m); i++)
 				{
-					if ((~partially_frozen_pattern) & i)
+					if (partially_frozen_pattern & i)
 					{
 						P0_dist[i] = -0.0;	// impossible.
 					}
@@ -460,7 +460,7 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estima
 				short temp_x = hard_decision.x;
 				for (int i = 0; i < m; i++)
 				{
-					if (partially_frozen_pattern & (0x1 << i))
+					if ((~partially_frozen_pattern) & (0x1 << i))
 					{
 						estimated_info_bits[k++] = bool(temp_x & 0x1);
 					}
