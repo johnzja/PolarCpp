@@ -191,20 +191,23 @@ void qary_modem_bpsk(const GF* x, qary_distribution* y, int N, double sigma_chan
 	delete[] bpsk_posteriori_1;
 }
 
-double test_SC()
+double test_SC(int min_errors = 800)
 {
 	std::default_random_engine e;
 	std::normal_distribution<double> n(0, 1);
 
 	// Study polar codes using normal distribution generator.
-	bit frozen_bits[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, };
+	// bit frozen_bits[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, };
+	
+	bit frozen_bits[] = {1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0};
+	int N = 16, M = 8;
 
-	int N = 512, M = 256;
-	int N_sim = 5000;
+	ASSERT(sizeof(frozen_bits) == N);
 
 	double Ebn0 = 2.5;
 	double sigma = 1 / sqrt(2 * (M / ((double)(N))))*pow(10, -Ebn0 / 20);
 	cout << "Evaluate SC @ Eb/n0 = " << Ebn0 << endl;
+	cout << "Code configuration: (" << N << ", " << M << ") binary Polar code." << endl;
 
 	bit* bits_to_encode = new bit[M];
 	bit* bits_encoded = new bit[N];
@@ -215,9 +218,10 @@ double test_SC()
 	SC_Decoder scd(N, frozen_bits);
 
 	int block_error_cnt = 0;
+	int N_runs = 0;
 
 	/* START simulation */
-	for (int sim_iter = 0; sim_iter < N_sim; sim_iter++)
+	while(block_error_cnt < min_errors)
 	{
 		// Step1: Generate random bits to be encoded.
 		for (int i = 0; i < M; i++)
@@ -237,8 +241,7 @@ double test_SC()
 		// Step4: Perform SC-decoding.
 		scd.sc_decode(y, bits_decoded);
 
-		// Step5: Display number of error bits.
-
+		// Step5: Count number of error bits.
 		for (int i = 0; i < M; i++)
 		{
 			if (bits_decoded[i] != bits_to_encode[i])
@@ -247,10 +250,11 @@ double test_SC()
 				break;
 			}
 		}
+		N_runs++;
 	}
 
 	double r;
-	cout << "BLER = " << (r = ((double)block_error_cnt) / N_sim) << endl;
+	cout << "BLER = " << (r = ((double)block_error_cnt) / N_runs) << endl;
 
 	delete[] bits_to_encode;
 	delete[] bits_encoded;
@@ -261,7 +265,7 @@ double test_SC()
 	return r;
 }
 
-double test_qary_SC()
+double test_qary_SC(int min_errors = 800)
 {
 	std::default_random_engine e;
 	std::normal_distribution<double> n(0, 1);
@@ -271,13 +275,14 @@ double test_qary_SC()
 	GF frozen_bits[] = { GF(2,3), GF(2,3), GF(2,3), GF(2,0), GF(2,3), GF(2,0), GF(2,0), GF(2,0) };
 
 	int N = 8, M = 4;
-	int N_sim = 5000;
+	int N_sim = 10000;
 	int m = 2;						// 4-ary code.
 
-	double R = 0.5;
+	double R = 0.5;			// Code rate = 0.5
 	double Ebn0 = 2.5;
 	double sigma = 1 / sqrt(2 * R)*pow(10, -Ebn0 / 20);
 	cout << "Evaluate 4-ary SC @ Eb/n0 = " << Ebn0 << endl;
+	cout << "Code configuration: (" << N << ", " << M << ") quaternary Polar code" << endl;
 
 	int N_bits = N * m;
 	int M_bits = 8;
@@ -297,9 +302,10 @@ double test_qary_SC()
 	SC_Decoder_qary scd(N, m, frozen_bits, alpha);
 
 	int block_error_cnt = 0;
+	int N_runs = 0;
 
 	/* START simulation */
-	for (int sim_iter = 0; sim_iter < N_sim; sim_iter++)
+	while(block_error_cnt < min_errors)
 	{
 		// Step1: Generate random bits to be encoded.
 		for (int i = 0; i < M_bits; i++)
@@ -316,8 +322,7 @@ double test_qary_SC()
 		//scd.sc_decode(y, bits_decoded);
 		scd.sc_decode_qary(y, bits_decoded);
 
-		// Step5: Display number of error bits.
-
+		// Step5: Count number of error blocks.
 		for (int i = 0; i < M_bits; i++)
 		{
 			if (bits_decoded[i] != bits_to_encode[i])
@@ -326,10 +331,11 @@ double test_qary_SC()
 				break;
 			}
 		}
+		N_runs++;
 	}
 
 	double r;
-	cout << "BLER = " << (r = ((double)block_error_cnt) / N_sim) << endl;
+	cout << "BLER = " << (r = ((double)block_error_cnt) / N_runs) << endl;
 
 	delete[] bits_to_encode;
 	delete[] syms_encoded;
@@ -343,8 +349,9 @@ double test_qary_SC()
 
 int main()
 {
-	test_SC();
-	test_qary_SC();
+	test_SC(1600);
+	cout << endl;
+	test_qary_SC(1600);
 	return 0;
 }
 
