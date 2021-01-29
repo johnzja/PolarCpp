@@ -79,6 +79,11 @@ SC_Decoder::~SC_Decoder()
 	delete[] bit_layer_vec;
 }
 
+int SC_Decoder::get_K()
+{
+	return K;
+}
+
 void SC_Decoder::up_calculate(const LLR* llr_x1, const LLR* llr_x2, LLR* result, int len)
 {
 	for (int i = 0; i < len; i++)
@@ -228,9 +233,13 @@ qary_distribution* qary_distribution::newqd(int m, int N)
 	return y;
 }
 
-void qary_distribution::destroyqd(qary_distribution* pqd)
+void qary_distribution::destroyqd(qary_distribution* pqd, int N)
 {
-	delete pqd;
+	for (int i = 0; i < N; i++)
+	{
+		(pqd + i)->~qary_distribution();
+	}
+	operator delete ((void*)pqd);		// operator new.
 }
 
 void SC_Decoder_qary::up_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, qary_distribution* result, GF alpha, int len)
@@ -327,7 +336,7 @@ SC_Decoder_qary::SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& 
 SC_Decoder_qary:: ~SC_Decoder_qary()
 {
 	delete[] _qary_frozen_syms;
-	qary_distribution::destroyqd(P);
+	qary_distribution::destroyqd(P, N - 1);
 	delete[] CL;
 	delete[] CR;
 
@@ -501,4 +510,45 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estima
 			}
 		}
 	}
+}
+
+// toolkits.
+qary_distribution* SC_Decoder_qary::convert_llr_into_qdist(int N_qary, int m, double* llr_arr)
+{
+	// llr_arr has length N_qary * m.
+	qary_distribution* result = qary_distribution::newqd(m, N_qary);
+
+	double* bpsk_posteriori_0 = new double[m];
+	double* bpsk_posteriori_1 = new double[m];
+
+	for (int i = 0; i < N_qary; i++)
+	{
+		for (int j = 0; j < m; j++)
+		{
+			double lr = exp(llr_arr[i*m + j]);
+			bpsk_posteriori_1[j] = 1 / (1 + lr);
+			bpsk_posteriori_0[j] = 1 - bpsk_posteriori_1[j];
+		}
+
+		qary_distribution& qd = result[i];
+		for (int k = 0; k < (0x1 << m); k++)qd.dist[k] = 1.0;	// initialize as 1.0 to enable multiplications.
+		for (int j = 0; j < m; j++)
+		{
+			for (int k = 0; k < (0x1 << m); k++)
+			{
+				if (k & (0x1 << j))
+				{
+					qd.dist[k] *= bpsk_posteriori_1[j];
+				}
+				else
+				{
+					qd.dist[k] *= bpsk_posteriori_0[j];
+				}
+			}
+		}
+	}
+
+	delete[] bpsk_posteriori_0;
+	delete[] bpsk_posteriori_1;
+	return result;
 }

@@ -1,6 +1,12 @@
 ﻿// PolarCpp.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
+#define CRTDBG_MAP_ALLOC
+
+
+#include <stdlib.h>
+#include <crtdbg.h>
+
 #include <iostream>
 #include "SC.h"
 
@@ -9,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <time.h>
+
 
 using namespace std;
 
@@ -340,7 +347,7 @@ double test_qary_SC(int min_errors = 800)
 	delete[] bits_to_encode;
 	delete[] syms_encoded;
 	//delete[] y;
-	qary_distribution::destroyqd(y);
+	qary_distribution::destroyqd(y, N);
 	delete[] bits_decoded;
 
 	cout << "Test q-ary SC complete!" << endl;
@@ -349,9 +356,16 @@ double test_qary_SC(int min_errors = 800)
 
 int main()
 {
+#ifdef CRTDBG_MAP_ALLOC
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+	//_CrtSetBreakAlloc(245);
+#endif
+
 	test_SC(1600);
 	cout << endl;
 	test_qary_SC(1600);
+
+	GF::destroy_GFTable();
 	return 0;
 }
 

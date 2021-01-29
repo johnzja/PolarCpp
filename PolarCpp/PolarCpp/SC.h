@@ -22,6 +22,8 @@ public:
 
 	void sc_decode(const LLR* llr, bit* estimated_info_bits);
 
+	int get_K();
+
 	virtual ~SC_Decoder();
 
 protected:
@@ -51,7 +53,7 @@ public:
 	~qary_distribution();
 
 	static qary_distribution* newqd(int m, int N);
-	static void destroyqd(qary_distribution* pqd);
+	static void destroyqd(qary_distribution* pqd, int N);
 public:
 	double* dist;
 public:
@@ -59,13 +61,14 @@ public:
 	int L;
 };
 
-class SC_Decoder_qary : protected SC_Decoder
+class SC_Decoder_qary : public SC_Decoder
 {
 public:
 	SC_Decoder_qary(int N, int m, const bit* frozen_bits, const GF& alpha);					// constructor of fully-frozen decoder.
 	SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& alpha);				// constructor of partially-frozen decoder.
 	void sc_decode_qary(const qary_distribution* probs, bit* estimated_info_bits);
 
+	static qary_distribution* convert_llr_into_qdist(int N_qary, int m, double* llr_arr);
 	virtual ~SC_Decoder_qary();
 
 protected:
