@@ -107,14 +107,31 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	}
 	else
 	{
-		// must be logical.
-		if (!mxIsLogical(mx_frozens)) mexErrMsgTxt("Input frozens must be of type logical if completely-frozen.");
-		bool* frozen_arr = mxGetLogicals(mx_frozens);
-
-		frozen_bits = new bit[N];
-		for (int i = 0; i < N; i++)
+		
+		// must be logical or double.
+		if (!mxIsLogical(mx_frozens))
 		{
-			frozen_bits[i] = frozen_arr[i];
+			if (!mxIsDouble(mx_frozens)) mexErrMsgTxt("Input frozens must be of type logical or double if completely-frozen.");
+			// HERE: it is double.
+			double* d_frozen_arr = mxGetDoubles(mx_frozens);
+			frozen_bits = new bit[N];
+			for (int i = 0; i < N; i++)
+			{
+				if (d_frozen_arr[i] == 0.0) frozen_bits[i] = false;
+				else if (d_frozen_arr[i] == 1.0) frozen_bits[i] = true;
+				else mexErrMsgTxt("Elements in frozen_bits must be binary.");
+			}
+		}
+		else
+		{
+			// HERE: it is logical.
+			bool* frozen_arr = mxGetLogicals(mx_frozens);
+
+			frozen_bits = new bit[N];
+			for (int i = 0; i < N; i++)
+			{
+				frozen_bits[i] = frozen_arr[i];
+			}
 		}
 	}
 
