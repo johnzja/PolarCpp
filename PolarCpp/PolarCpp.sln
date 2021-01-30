@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.28307.1209
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PolarCpp", "PolarCpp\PolarCpp.vcxproj", "{E381F529-5BD6-4578-A756-AD35CECE94BF}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Qary_SC_Decoder", "Qary_SC_Decoder\Qary_SC_Decoder.vcxproj", "{A14D7F13-AFEC-441D-B755-46C45A680E17}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{E381F529-5BD6-4578-A756-AD35CECE94BF}.Release|x64.Build.0 = Release|x64
 		{E381F529-5BD6-4578-A756-AD35CECE94BF}.Release|x86.ActiveCfg = Release|Win32
 		{E381F529-5BD6-4578-A756-AD35CECE94BF}.Release|x86.Build.0 = Release|Win32
+		{A14D7F13-AFEC-441D-B755-46C45A680E17}.Debug|x64.ActiveCfg = Debug|x64
+		{A14D7F13-AFEC-441D-B755-46C45A680E17}.Debug|x64.Build.0 = Debug|x64
+		{A14D7F13-AFEC-441D-B755-46C45A680E17}.Debug|x86.ActiveCfg = Debug|x64
+		{A14D7F13-AFEC-441D-B755-46C45A680E17}.Debug|x86.Build.0 = Debug|x64
+		{A14D7F13-AFEC-441D-B755-46C45A680E17}.Release|x64.ActiveCfg = Release|x64
+		{A14D7F13-AFEC-441D-B755-46C45A680E17}.Release|x64.Build.0 = Release|x64
+		{A14D7F13-AFEC-441D-B755-46C45A680E17}.Release|x86.ActiveCfg = Release|Win32
+		{A14D7F13-AFEC-441D-B755-46C45A680E17}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
