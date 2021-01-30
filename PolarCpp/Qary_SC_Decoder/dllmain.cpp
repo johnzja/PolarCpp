@@ -228,11 +228,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		p_SC_Decoder_qary->sc_decode_qary(qdist, result_ptr);	// Perform q-ary SC.
 
 		qary_distribution::destroyqd(qdist, N);
+		delete p_SC_Decoder_qary;
 	}
 
 
 	delete[] frozen_syms;
 	delete[] frozen_bits;
+	//GF::destroy_GFTable();
 	return;
 }
 

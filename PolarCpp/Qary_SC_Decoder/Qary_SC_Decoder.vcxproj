@@ -88,6 +88,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>D:\Program Files\MATLAB\R2018a\extern\include;D:\Program Files\MATLAB\R2018a\extern\include\win64;$(IncludePath)</IncludePath>
+    <TargetExt>.mexw64</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -168,6 +169,7 @@
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>D:\Program Files\MATLAB\R2018a\extern\lib\win64\microsoft;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libmx.lib;libmex.lib;libmat.lib;libeng.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile>Source.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
