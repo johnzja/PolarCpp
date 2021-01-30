@@ -84,18 +84,8 @@ GF operator*(const GF& a, const GF& b)
 	GF_ASSERT(a.m == b.m);
 	int m = a.m;
 	GF::construct_GFTable(m);
-	if (a.x == 0 || b.x == 0)
-		return GF(m, 0);
-	else if (a.x == 1)
-		return b;
-	else if (b.x == 1)
-		return a;
-
 	GFTable* gft = a.GFT_vec[m];				// Access GFTable.
-	short log_a = gft->discrete_log[a.x];
-	short log_b = gft->discrete_log[b.x];
-	short log_ans = (log_a + log_b) % (gft->q - 1);
-	return gft->primitive_chain[log_ans];
+	return gft->GFMT[((a.x)*(gft->q)) + b.x];
 }
 
 GF inv(const GF& a)
