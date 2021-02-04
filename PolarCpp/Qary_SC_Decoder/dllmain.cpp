@@ -191,7 +191,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	{
 		if (!is_qary) mexErrMsgTxt("Binary channel input must be in LLR form.");
 
-		// Read out the distribution matrix directly from 
+		// Read out the distribution matrix directly from the MATLAB double array mx_channel_recv.
 		size_t N_rows = mxGetM(mx_channel_recv);
 		if (N_rows != (0x1 << m))mexErrMsgTxt("Input probabilities must be a matrix of 2^m rows.");
 		if (!mxIsDouble(mx_channel_recv)) mexErrMsgTxt("Input probabilities must be doubles.");
