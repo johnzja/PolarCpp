@@ -5,6 +5,178 @@ using namespace std;
 
 #define min(x,y) ((x<y)?(x):(y))
 
+
+/* SC-Frame functions */
+SCFrame::SCFrame(int N, LLR* channel_recv, bool binary = true) :copy(false), N(N), binary(binary), _channel_recv(channel_recv)
+{
+	ASSERT(!(N & (N - 1)));	// Ensure N is power of 2.
+	n = (int)(log2(N));
+	phi = 0;
+
+	if (binary)
+	{
+		P = new LLR[N - 1];
+		CL = new bit[N - 1];
+		CR = new bit[N - 1];
+	}	// Notice: if not binary, then P, CL and CR should be re-initialized.
+	else
+	{
+		P = NULL; CL = NULL; CR = NULL; // delete a nullptr is allowed.
+	}
+
+	// Step2: Generate bit_layer_vec and llr_layer_vec vectors.
+	llr_layer_vec = new int[N];
+	llr_layer_vec[0] = 0;
+	for (int i = 1; i < N; i++)
+	{
+		// Count the consecutive 0's from the LSB of the binary expansion representation of i.
+		int layer = 0;
+		int num = i;
+		while ((num & 0x1) == 0)
+		{
+			layer++;
+			num >>= 1;
+		}
+		llr_layer_vec[i] = layer;
+	}
+	// llr_layer_vec[i] means the layer index from which to read LLR when decoding u[i].
+
+	bit_layer_vec = new int[N];
+	for (int i = 0; i < N; i++)
+	{
+		int num = i >> 1;
+		int layer = 0;
+		while ((num & 0x1) == 1)
+		{
+			layer++;
+			num >>= 1;
+		}
+		bit_layer_vec[i] = layer;
+	}
+	// bit_layer_vec[i] means the number of consecutive 1's  - 1of an odd number.
+	// Odd numbers represent leaf nodes that need partial-sum return.
+}
+
+// copy constructor, used in paths-splitting.
+SCFrame::SCFrame(const SCFrame& src) :copy(true)
+{
+	bit_layer_vec = src.bit_layer_vec;
+	llr_layer_vec = src.llr_layer_vec;
+	N = src.N;
+	n = src.n;
+	binary = src.binary;
+	phi = 0;
+	_channel_recv = src._channel_recv;
+
+	if (src.P)	// if src is binary: then construct P(LLR).
+	{
+		P = new LLR[N - 1];
+		CL = new bit[N - 1];
+		CR = new bit[N - 1];
+	}	// Notice: if not binary, then P, CL and CR should be re-initialized.
+	else
+	{
+		P = NULL; CL = NULL; CR = NULL; // delete a nullptr is allowed.
+	}
+}
+
+SCFrame::~SCFrame()
+{
+	if (!copy)
+	{
+		delete[] llr_layer_vec;
+		delete[] bit_layer_vec;
+	}
+	delete[] P;
+	delete[] CL;
+	delete[] CR;
+}
+
+void SCFrame::up_calculate(const LLR* llr_x1, const LLR* llr_x2, LLR* result, int len)
+{
+	for (int i = 0; i < len; i++)
+	{
+		double L1 = llr_x1[i], L2 = llr_x2[i];
+		bool s1 = (L1 >= 0), s2 = (L2 >= 0);
+		double Lans = min(abs(L1), abs(L2));
+		result[i] = (s1 ^ s2) ? -Lans : Lans;
+	}
+}
+
+void SCFrame::down_calculate(const LLR* llr_x1, const LLR* llr_x2, const bit* u2, LLR* result, int len)
+{
+	for (int i = 0; i < len; i++)
+	{
+		double L1 = llr_x1[i], L2 = llr_x2[i];
+		result[i] = (u2[i]) ? (L2 - L1) : (L2 + L1);
+	}
+}
+
+int SCFrame::get_current_index() const
+{
+	return phi;
+}
+
+void SCFrame::reset_index()
+{
+	phi = 0;
+}
+
+
+
+LLR SCFrame::left_propagate()
+{
+	int index_1, index_2, op_len;
+	if (phi == 0)
+	{
+		// Use channel LLRs.
+		index_1 = (0x1) << (n - 1);
+		up_calculate(_channel_recv, _channel_recv + index_1, P + index_1 - 1, index_1);
+
+		for (int i = n - 2; i >= 0; i--)
+		{
+			index_1 = (0x1) << i;			// 2
+			index_2 = index_1 << 1;			// 4
+			up_calculate(P + index_2 - 1, P + index_2 - 1 + index_1, P + index_1 - 1, index_1);
+		}
+	}
+	else if (phi == (N / 2))
+	{
+		index_1 = (0x1) << (n - 1);
+		down_calculate(_channel_recv, _channel_recv + index_1, CL + index_1 - 1, P + index_1 - 1, index_1);
+
+		for (int i = n - 2; i >= 0; i--)
+		{
+			index_1 = (0x1) << i;
+			index_2 = index_1 << 1;
+			up_calculate(P + index_2 - 1, P + index_2 - 1 + index_1, P + index_1 - 1, index_1);
+		}
+	}
+	else
+	{
+		int llr_layer = llr_layer_vec[phi];
+		index_1 = (0x1) << (llr_layer + 1);				// 4
+		index_2 = index_1 + ((0x1) << llr_layer);		// 6
+		op_len = (0x1) << llr_layer;							// 2
+
+		// Perform g function once.
+		down_calculate(P + index_1 - 1, P + index_2 - 1, CL + index_1 / 2 - 1, P + index_1 / 2 - 1, op_len);
+
+		// Peform llr_layer f functions.
+		for (int i = llr_layer - 1; i >= 0; i--)
+		{
+			index_1 = (0x1) << i;			// 1
+			index_2 = index_1 << 1;		// 2
+			up_calculate(P + index_2 - 1, P + index_2 - 1 + index_1, P + index_1 - 1, index_1);
+		}
+	}
+
+	return P[0];
+}
+
+
+
+/* Decoders */
 SC_Decoder::SC_Decoder(int N, const bit* frozen_bits, bool binary):N(N)
 {
 	ASSERT(!(N&(N - 1)));	// Ensure N is power of 2.

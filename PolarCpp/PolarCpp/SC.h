@@ -14,6 +14,39 @@ typedef unsigned short bits16;
 typedef bool bit;
 typedef double LLR;
 
+/* SC-Frame, providing P, C vectors, up/down calculations and left/right propagation functions. 
+* Properly using template and class inheritance may simplify coding.
+*/
+class SCFrame
+{
+public:
+	SCFrame(int N, LLR* channel_recv, bool binary = true);
+
+	SCFrame(const SCFrame& src);
+
+	LLR left_propagate();
+
+	void right_propagate(bit bit_decision, const bit* input_CL = NULL, const bit* input_CR = NULL);		// input_CL and input_CR are used for lazy-copying.
+
+	int get_current_index() const;																		// return index{u_i}, 0 <= i <= N-1.
+
+	void reset_index();
+
+	virtual ~SCFrame();
+
+protected:
+	static void up_calculate(const LLR* llr_x1, const LLR* llr_x2, LLR* result, int len);
+	static void down_calculate(const LLR* llr_x1, const LLR* llr_x2, const bit* u2, LLR* result, int len);
+
+	int N, n;
+	int phi;
+	int* llr_layer_vec, * bit_layer_vec;
+	bool copy, binary;
+	LLR* P;
+	bit* CL, * CR;
+	const LLR* _channel_recv;
+};
+
 /* Successive Cancellation Decoder for binary polar codes. */
 class SC_Decoder
 {
@@ -40,7 +73,7 @@ protected:
 	bit* _frozen_bits;
 };
 
-
+// SC-List implementation: using SC-Frame class.
 
 // q-ary SC decoder.
 class SC_Decoder_qary;
