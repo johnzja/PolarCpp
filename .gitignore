@@ -351,3 +351,9 @@ MigrationBackup/
 
 # vscode
 .vscode/
+
+# vcproj files
+*.sln
+*.vcxproj
+*.filters
+*.user
