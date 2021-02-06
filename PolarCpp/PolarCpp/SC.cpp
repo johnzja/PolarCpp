@@ -7,21 +7,22 @@ using namespace std;
 
 
 /* SC-Frame functions */
-SCFrame::SCFrame(int N, LLR* channel_recv, bool binary = true) :copy(false), N(N), binary(binary), _channel_recv(channel_recv)
+SCFrame::SCFrame(int N) : copy(false), N(N)
 {
 	ASSERT(!(N & (N - 1)));	// Ensure N is power of 2.
 	n = (int)(log2(N));
 	phi = 0;
 
-	if (binary)
+	P = new LLR[N - 1];
+	CL = new bit[N - 1];
+	CR = new bit[N - 1];
+
+	P_src = new LLR * [n];
+	CL_src = new bit * [n];
+	for (int i = 0; i < n; i++)
 	{
-		P = new LLR[N - 1];
-		CL = new bit[N - 1];
-		CR = new bit[N - 1];
-	}	// Notice: if not binary, then P, CL and CR should be re-initialized.
-	else
-	{
-		P = NULL; CL = NULL; CR = NULL; // delete a nullptr is allowed.
+		P_src[i] = P;
+		CL_src[i] = CL;	// initialize sources.
 	}
 
 	// Step2: Generate bit_layer_vec and llr_layer_vec vectors.
@@ -55,29 +56,33 @@ SCFrame::SCFrame(int N, LLR* channel_recv, bool binary = true) :copy(false), N(N
 	}
 	// bit_layer_vec[i] means the number of consecutive 1's  - 1of an odd number.
 	// Odd numbers represent leaf nodes that need partial-sum return.
+
+
+
 }
 
-// copy constructor, used in paths-splitting.
+// copy constructor, used in initializing.
 SCFrame::SCFrame(const SCFrame& src) :copy(true)
 {
 	bit_layer_vec = src.bit_layer_vec;
 	llr_layer_vec = src.llr_layer_vec;
 	N = src.N;
 	n = src.n;
-	binary = src.binary;
-	phi = 0;
+	phi = 0;		
 	_channel_recv = src._channel_recv;
 
-	if (src.P)	// if src is binary: then construct P(LLR).
+	P = new LLR[N - 1];
+	CL = new bit[N - 1];
+	CR = new bit[N - 1];
+
+	P_src = new LLR * [n];
+	CL_src = new bit * [n];
+	for (int i = 0; i < n; i++)
 	{
-		P = new LLR[N - 1];
-		CL = new bit[N - 1];
-		CR = new bit[N - 1];
-	}	// Notice: if not binary, then P, CL and CR should be re-initialized.
-	else
-	{
-		P = NULL; CL = NULL; CR = NULL; // delete a nullptr is allowed.
+		P_src[i] = P;
+		CL_src[i] = CL;	// initialize sources.
 	}
+
 }
 
 SCFrame::~SCFrame()
@@ -90,7 +95,10 @@ SCFrame::~SCFrame()
 	delete[] P;
 	delete[] CL;
 	delete[] CR;
+	delete[] P_src;
+	delete[] CL_src;
 }
+
 
 void SCFrame::up_calculate(const LLR* llr_x1, const LLR* llr_x2, LLR* result, int len)
 {
@@ -122,14 +130,14 @@ void SCFrame::reset_index()
 	phi = 0;
 }
 
-
-
 LLR SCFrame::left_propagate()
 {
+	// Perform g functions and consecutive f functions.
 	int index_1, index_2, op_len;
 	if (phi == 0)
 	{
-		// Use channel LLRs.
+		// Use channel LLRs. HERE lazy_copy is not needed, because all the source data come from the physical channel.
+		// The same reasoning applies to the second case where phi == N/2.
 		index_1 = (0x1) << (n - 1);
 		up_calculate(_channel_recv, _channel_recv + index_1, P + index_1 - 1, index_1);
 
@@ -155,18 +163,19 @@ LLR SCFrame::left_propagate()
 	else
 	{
 		int llr_layer = llr_layer_vec[phi];
-		index_1 = (0x1) << (llr_layer + 1);				// 4
-		index_2 = index_1 + ((0x1) << llr_layer);		// 6
-		op_len = (0x1) << llr_layer;							// 2
+		index_1 = (0x1) << (llr_layer + 1);					// 4
+		index_2 = index_1 + ((0x1) << llr_layer);			// 6
+		op_len = (0x1) << llr_layer;						// 2
 
-		// Perform g function once.
-		down_calculate(P + index_1 - 1, P + index_2 - 1, CL + index_1 / 2 - 1, P + index_1 / 2 - 1, op_len);
+		// Perform g function once. HERE: lazy_copy must be used.
+		LLR* P_data_src = P_src[llr_layer + 1];
+		down_calculate(P_data_src + index_1 - 1, P_data_src + index_2 - 1, CL + index_1 / 2 - 1, P + index_1 / 2 - 1, op_len);
 
 		// Peform llr_layer f functions.
 		for (int i = llr_layer - 1; i >= 0; i--)
 		{
 			index_1 = (0x1) << i;			// 1
-			index_2 = index_1 << 1;		// 2
+			index_2 = index_1 << 1;			// 2
 			up_calculate(P + index_2 - 1, P + index_2 - 1 + index_1, P + index_1 - 1, index_1);
 		}
 	}
@@ -174,7 +183,67 @@ LLR SCFrame::left_propagate()
 	return P[0];
 }
 
+void SCFrame::right_propagate(bit bit_decision)
+{
+	int index_1, index_2;
+	int phi_mod_2 = phi & 0x1;
 
+	if (phi_mod_2) CL[0] = bit_decision; else CR[0] = bit_decision;		
+
+	if (phi_mod_2 == 1 && phi != (N - 1))			// partial-sum returning.
+	{
+		int bit_layer = bit_layer_vec[phi];
+		for (int i = 0; i < bit_layer; i++)
+		{
+			index_1 = (0x1) << i;		// 1
+			index_2 = index_1 << 1;		// 2
+
+			bit* CL_data_src = CL_src[i];
+			// do not call memcpy here.
+			for (int start = index_1 - 1; start < index_2 - 1; start++)
+			{
+				CR[index_1 + start] = CL_data_src[start] ^ CR[start];
+				CR[index_2 + start] = CR[start];
+			}
+		}
+
+		index_1 = (0x1) << bit_layer;	// 2
+		index_2 = index_1 << 1;			// 4
+
+		bit* CL_data_src = CL_src[bit_layer];
+		for (int start = index_1 - 1; start < index_2 - 1; start++)
+		{
+			CL[index_1 + start] = CL_data_src[start] ^ CR[start];
+			CL[index_2 + start] = CR[start];
+		}
+	}
+
+	if (phi < (N - 1))
+	{
+		for (int i_layer = 0; i_layer <= llr_layer_vec[phi + 1]; i_layer++)
+		{
+			P_src[i_layer] = P;
+			CL_src[i_layer] = CL;		// Prepare for the next P-array-related g function call.
+		}
+	}
+
+	phi++;
+}
+
+void SCFrame::copy_from(const SCFrame& src)
+{
+	phi = src.phi;
+	for (int i = 0; i < n; i++)
+	{
+		P_src[i] = src.P_src[i];
+		CL_src[i] = src.CL_src[i];
+	}
+}
+
+void SCFrame::setup_channel_recv(const LLR* channel_recv)
+{
+	_channel_recv = channel_recv;
+}
 
 /* Decoders */
 SC_Decoder::SC_Decoder(int N, const bit* frozen_bits, bool binary):N(N)
@@ -724,3 +793,87 @@ qary_distribution* SC_Decoder_qary::convert_llr_into_qdist(int N_qary, int m, do
 	delete[] bpsk_posteriori_1;
 	return result;
 }
+
+
+/* SCL decoder, can be independent of the above SC and q-ary SC decoders. */
+SCL_decoder::SCL_decoder(int N, const bit* frozen_bits, int list_size):L(list_size), N(N)
+{
+	ASSERT((N & (N - 1)) == 0);
+	ASSERT((L & (L - 1)) == 0);	// Ensure that L is a power of two.
+
+	if (frozen_bits)
+	{
+		_frozen_bits = new bit[N];
+		for (int i = 0; i < N; i++)
+		{
+			if (!frozen_bits[i]) K++;
+			_frozen_bits[i] = frozen_bits[i];
+		}
+	}
+	else
+		_frozen_bits = NULL;
+
+	// Construct SC list.
+	// using operator new.
+	SCList = (SCFrame*) operator new(L * sizeof(SCFrame));
+	new (SCList + 0) SCFrame(N);
+	for (int i = 1; i < L; i++)
+	{
+		new (SCList + i) SCFrame(*(SCList));
+	}
+
+}
+
+SCL_decoder::~SCL_decoder()
+{
+	for (int i = 0; i < L; i++)
+	{
+		(SCList + i)->~SCFrame();		// Call the destructor explicitly.
+	}
+	operator delete((void*)SCList);
+}
+
+void SCL_decoder::scl_decode(const LLR* llr, bit* estimated_info_bits)
+{
+	// Step1: Load channel LLRs.
+	double* PM = new double[L];
+	bool* is_active = new bool[L];
+	bit** u = new bit * [L];
+
+	for (int l_index = 0; l_index < L; l_index++)
+	{
+		SCList[l_index].setup_channel_recv(llr);
+		SCList[l_index].reset_index();
+		PM[l_index] = 0.0;
+		is_active[l_index] = false;
+		u[l_index] = new bit[K];
+	}
+	is_active[0] = true;
+
+	int k = 0;
+	// Step2: iteratively decode each bits.
+	for (int phi = 0; phi < N; phi++)
+	{
+		for (int l_index = 0; l_index < L; l_index++)
+		{
+			if (!is_active[l_index]) continue;
+			double ui_llr = SCList[l_index].left_propagate();
+
+			bit bit_decision;
+			if (_frozen_bits[phi])
+				bit_decision = false;
+			else
+				bit_decision = (ui_llr < 0);
+		}
+	}
+	// TODO: unfinished.
+
+
+	delete[] PM;
+	delete[] is_active;
+	for (int l_index = 0; l_index < L; l_index++) delete[] u[l_index];
+	delete[] u;
+}
+
+
+

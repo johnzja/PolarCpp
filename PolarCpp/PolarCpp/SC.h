@@ -20,17 +20,21 @@ typedef double LLR;
 class SCFrame
 {
 public:
-	SCFrame(int N, LLR* channel_recv, bool binary = true);
+	SCFrame(int N);
 
 	SCFrame(const SCFrame& src);
 
 	LLR left_propagate();
 
-	void right_propagate(bit bit_decision, const bit* input_CL = NULL, const bit* input_CR = NULL);		// input_CL and input_CR are used for lazy-copying.
+	void right_propagate(bit bit_decision);		
 
-	int get_current_index() const;																		// return index{u_i}, 0 <= i <= N-1.
+	inline int get_current_index() const;										// return index{u_i}, 0 <= i <= N-1.
 
-	void reset_index();
+	inline void reset_index();
+
+	inline void copy_from(const SCFrame& src);
+
+	inline void setup_channel_recv(const LLR* channel_recv);
 
 	virtual ~SCFrame();
 
@@ -41,10 +45,12 @@ protected:
 	int N, n;
 	int phi;
 	int* llr_layer_vec, * bit_layer_vec;
-	bool copy, binary;
+	bool copy;			// HERE copy means to share llr_layer_vec and bit_layer_vec.
 	LLR* P;
 	bit* CL, * CR;
 	const LLR* _channel_recv;
+	LLR** P_src;		// perform lazy copying.
+	bit** CL_src;		// perform lazy copying.
 };
 
 /* Successive Cancellation Decoder for binary polar codes. */
@@ -118,3 +124,23 @@ protected:
 	GF alpha;
 	int m;
 };
+
+/* SCL decoders. */
+class SCL_decoder
+{
+public:
+	SCL_decoder(int N, const bit* frozen_bits, int list_size);
+
+	virtual ~SCL_decoder();
+
+	void scl_decode(const LLR* llr, bit* estimated_info_bits);
+
+protected:
+	int L;	// list size.
+	int N;	// code length.
+	int K;	// number of information bits.
+	bit* _frozen_bits;
+	SCFrame* SCList;
+};
+
+
