@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cmath>
 #include "GF.h"
+
+#include <stack>
 using namespace std;
 
 typedef unsigned int bits32;
@@ -10,6 +12,7 @@ typedef unsigned short bits16;
 //typedef vector<bool> BitVec;
 //typedef vector<double> LLRVec;
 #define ASSERT assert
+#define REALMAX 1e20
 
 typedef bool bit;
 typedef double LLR;
@@ -30,7 +33,7 @@ public:
 
 	inline int get_current_index() const;										// return index{u_i}, 0 <= i <= N-1.
 
-	inline void reset_index();
+	inline void set_index(int input_phi);
 
 	inline void copy_from(const SCFrame& src);
 
@@ -126,6 +129,12 @@ protected:
 };
 
 /* SCL decoders. */
+typedef struct
+{
+	double x;
+	int index;
+}PM_with_index;
+
 class SCL_decoder
 {
 public:
@@ -141,6 +150,13 @@ protected:
 	int K;	// number of information bits.
 	bit* _frozen_bits;
 	SCFrame* SCList;
+
+	double* PM, *PM_0, *PM_1;
+	bool* is_active, *active_0, *active_1;
+	bit** u;
+	LLR* ui_llr;
+	PM_with_index* pwi;
+	stack<int> stk_killed;
 };
 
 
