@@ -612,7 +612,7 @@ int SC_Decoder_qary::find_max(const qary_distribution& dist)
 	return index;
 }
 
-void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estimated_info_bits)
+void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs,bool is_Genie,const GF* true_u, bit* estimated_info_bits)
 {
 	// Assume the array "estimated_info_bits" has length K.
 	int index_1, index_2, op_len;
@@ -688,9 +688,15 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estima
 					temp_x >>= 1;
 				}
 				if (phi_mod_2 == 0)
-					CL[0] = hard_decision;
+					if (is_Genie)
+						CL[0] = true_u[phi];
+					else
+						CL[0] = hard_decision;
 				else
-					CR[0] = hard_decision;
+					if (is_Genie)
+						CR[0] = true_u[phi];
+					else
+						CR[0] = hard_decision;
 
 				k += m;
 			}
@@ -729,9 +735,15 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estima
 				}
 
 				if (phi_mod_2 == 0)
-					CL[0] = hard_decision;
+					if (is_Genie)
+						CL[0] = true_u[phi];
+					else
+						CL[0] = hard_decision;
 				else
-					CR[0] = hard_decision;
+					if (is_Genie)
+						CR[0] = true_u[phi];
+					else
+						CR[0] = hard_decision;
 			}
 		}
 

@@ -108,7 +108,7 @@ class SC_Decoder_qary : public SC_Decoder
 public:
 	SC_Decoder_qary(int N, int m, const bit* frozen_bits, const GF& alpha);					// constructor of fully-frozen decoder.
 	SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& alpha);				// constructor of partially-frozen decoder.
-	void sc_decode_qary(const qary_distribution* probs, bit* estimated_info_bits);
+	void sc_decode_qary(const qary_distribution* probs, bool is_Genie, const GF* true_u, bit* estimated_info_bits);
 
 	static qary_distribution* convert_llr_into_qdist(int N_qary, int m, double* llr_arr);
 	virtual ~SC_Decoder_qary();
