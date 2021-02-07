@@ -5,10 +5,10 @@
 
 
 #define min(x,y) (((x)<(y))?(x):(y))
-
+const bool use_lazy_copy = true;
 
 /* SC-Frame functions */
-SCFrame::SCFrame(int N) : copy(false), N(N)
+SCFrame::SCFrame(int N) : copy(false), N(N), _channel_recv(NULL)
 {
 	ASSERT(!(N & (N - 1)));	// Ensure N is power of 2.
 	n = (int)(log2(N));
@@ -57,7 +57,6 @@ SCFrame::SCFrame(int N) : copy(false), N(N)
 	}
 	// bit_layer_vec[i] means the number of consecutive 1's  - 1of an odd number.
 	// Odd numbers represent leaf nodes that need partial-sum return.
-
 
 
 }
@@ -123,11 +122,6 @@ void SCFrame::down_calculate(const LLR* llr_x1, const LLR* llr_x2, const bit* u2
 int SCFrame::get_current_index() const
 {
 	return phi;
-}
-
-void SCFrame::set_index(int input_phi)
-{
-	phi = input_phi;
 }
 
 LLR SCFrame::left_propagate()
@@ -233,7 +227,7 @@ void SCFrame::right_propagate(bit bit_decision)
 void SCFrame::copy_from(const SCFrame& src)
 {
 	phi = src.phi;
-	if (false)
+	if (use_lazy_copy)
 	{
 		for (int i = 0; i < n; i++)
 		{
@@ -254,6 +248,18 @@ void SCFrame::copy_from(const SCFrame& src)
 void SCFrame::setup_channel_recv(const LLR* channel_recv)
 {
 	_channel_recv = channel_recv;
+}
+
+void SCFrame::reset_all()
+{
+	// Reset operations must be performed when the SCL decoder starts another decoding cycle.
+	// Resetting lazy-copy pointers.
+	for (int i = 0; i < n; i++)
+	{
+		P_src[i] = P;
+		CL_src[i] = CL;
+	}
+	phi = 0;
 }
 
 /* Decoders */
@@ -887,8 +893,8 @@ void SCL_decoder::scl_decode(const LLR* llr, bit* estimated_info_bits)
 	// Step1: Load channel LLRs.
 	for (int l_index = 0; l_index < L; l_index++)
 	{
+		SCList[l_index].reset_all();
 		SCList[l_index].setup_channel_recv(llr);
-		SCList[l_index].set_index(0);
 		PM[l_index] = REALMAX;						// initialize path loss as MAX.
 		is_active[l_index] = false;
 	}
@@ -896,11 +902,11 @@ void SCL_decoder::scl_decode(const LLR* llr, bit* estimated_info_bits)
 	PM[0] = 0.0;
 
 	int k = 0;
-	while (!stk_killed.empty())stk_killed.pop();
-
+	
 	// Step2: iteratively decode each bits.
 	for (int phi = 0; phi < N; phi++)
 	{
+		while (!stk_killed.empty())stk_killed.pop();
 		for (int i = 0; i < L; i++)
 		{
 			if (!is_active[i]) continue;

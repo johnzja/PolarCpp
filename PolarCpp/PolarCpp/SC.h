@@ -33,11 +33,11 @@ public:
 
 	inline int get_current_index() const;										// return index{u_i}, 0 <= i <= N-1.
 
-	inline void set_index(int input_phi);
-
 	inline void copy_from(const SCFrame& src);
 
 	inline void setup_channel_recv(const LLR* channel_recv);
+
+	inline void reset_all();
 
 	virtual ~SCFrame();
 
