@@ -123,7 +123,7 @@ bool operator==(const GF& a, const GF& b)
 	return (a.x == b.x);
 }
 
-GFTable::GFTable(int m)
+GFTable::GFTable(int m):m(m)
 {
 	GF_ASSERT(m >= 1 && m <= 10);
 	poly = GF::get_poly(m);
@@ -166,7 +166,7 @@ GFTable::GFTable(int m)
 	primitive_chain[0] = GF(m, 1);
 	primitive_chain[1] = GF(m, i);
 
-	discrete_log = new short[q];	// discrete_log[x] means log(GF(x)) w.r.t primitive element alpha = primitive_chain[1].
+	discrete_log = new short[q];		// discrete_log[x] means log(GF(x)) w.r.t primitive element alpha = primitive_chain[1].
 	discrete_log[0] = -1;				// log(-1) is not defined.
 	discrete_log[1] = 0;					
 	discrete_log[i] = 1;
