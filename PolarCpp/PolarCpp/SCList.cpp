@@ -44,7 +44,6 @@ SCL_decoder::SCL_decoder(int N, const bit* frozen_bits, int list_size) :L(list_s
 	pwi = new PM_with_index[2 * L];
 	active_0 = new bool[L];
 	active_1 = new bool[L];
-
 }
 
 SCL_decoder::~SCL_decoder()
@@ -238,5 +237,111 @@ void SCL_decoder::scl_decode(const LLR* llr, bit* estimated_info_bits)
 	return;
 }
 
+/* Q-ary SCL decoder */
+Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const bit* frozen_bits, const GF& alpha, int list_size):partially_frozen(false), L(list_size), N(N), alpha(alpha)
+{
+	ASSERT((N & (N - 1)) == 0);
+	ASSERT((L & (L - 1)) == 0);	// Ensure that L is a power of two.
+	GF_ASSERT(m >= GF_M_MIN && m <= GF_M_MAX);
 
+	_frozen_syms = NULL;
+	_frozen_bits = new bit[N];
+	K = 0;
+	for (int i = 0; i < N; i++)
+	{
+		_frozen_bits[i] = frozen_bits[i];		// copy the frozen bits in case the input pointer *frozen_bits is deleted after the class construction.
+		if (!frozen_bits[i])K++;
+	}
+	K *= m;
 
+	// Construct SCList using operator new.
+	Q_SCList = (Qary_SCFrame*)operator new (L * sizeof(Qary_SCFrame));
+	new (Q_SCList + 0) Qary_SCFrame(N, m, alpha);
+	for (int i = 1; i < L; i++)
+	{
+		new(Q_SCList + i) Qary_SCFrame(*(Q_SCList));
+	}
+
+	// Allocate memory for additional temporary variables.
+	PM = new double[L];
+	is_active = new bool[L];
+	u = new GF * [L];
+	for (int i = 0; i < L; i++)
+	{
+		u[i] = new GF[K];
+	}
+
+	PM_0 = new double[L];
+	PM_1 = new double[L];
+
+	ui_qdist = qary_distribution::newqd(m, L);
+
+	pwi = new PM_with_index[2 * L];
+	active_0 = new bool[L];
+	active_1 = new bool[L];
+}
+
+Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const GF* frozen_syms, const GF& alpha, int list_size) :partially_frozen(true), L(list_size), N(N), alpha(alpha)
+{
+	ASSERT((N & (N - 1)) == 0);
+	ASSERT((L & (L - 1)) == 0);	// Ensure that L is a power of two.
+	GF_ASSERT(m >= GF_M_MIN && m <= GF_M_MAX);
+
+	_frozen_syms = new GF[N];
+	_frozen_bits = NULL;
+	K = 0;
+	for (int i = 0; i < N; i++)
+	{
+		_frozen_syms[i] = frozen_syms[i];
+		K += (m - __popcnt16(frozen_syms[i].x));		// count the number of information bits.
+	}
+
+	// Construct SCList using operator new.
+	Q_SCList = (Qary_SCFrame*)operator new (L * sizeof(Qary_SCFrame));
+	new (Q_SCList + 0) Qary_SCFrame(N, m, alpha);
+	for (int i = 1; i < L; i++)
+	{
+		new(Q_SCList + i) Qary_SCFrame(*(Q_SCList));
+	}
+
+	// Allocate memory for additional temporary variables.
+	PM = new double[L];
+	is_active = new bool[L];
+	u = new GF * [L];
+	for (int i = 0; i < L; i++)
+	{
+		u[i] = new GF[K];
+	}
+
+	PM_0 = new double[L];
+	PM_1 = new double[L];
+
+	ui_qdist = qary_distribution::newqd(m, L);
+
+	pwi = new PM_with_index[2 * L];
+	active_0 = new bool[L];
+	active_1 = new bool[L];
+}
+
+Qary_SCL_decoder::~Qary_SCL_decoder()
+{
+	delete[] _frozen_bits;
+	delete[] _frozen_syms;
+	for (int i = 0; i < L; i++)
+	{
+		(Q_SCList + i)->~Qary_SCFrame();			// Call the destructor explicitly.
+	}
+	operator delete((void*)Q_SCList);
+
+	delete[] PM;
+	delete[] is_active;
+	for (int i = 0; i < L; i++) delete[] u[i];
+
+	delete[] u;
+	delete[] PM_0; delete[] PM_1;
+
+	qary_distribution::destroyqd(ui_qdist, L);
+
+	delete[] pwi;
+	delete[] active_0;	delete[] active_1;
+}

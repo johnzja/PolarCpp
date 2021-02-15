@@ -6,13 +6,14 @@
 #include <stdlib.h>
 #include <crtdbg.h>
 
-#include <iostream>
 #include "SC.h"
+#include "SCList.h"
 
-#include <vector>
-#include <random>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+#include <vector>
+#include <random>
 #include <time.h>
 
 
@@ -395,12 +396,12 @@ double test_SCL(int min_errors = 800)
 		// Step3: Add noise.
 		for (int i = 0; i < N; i++)
 		{
-			y[i] = 1 - 2 * bits_encoded[i];		// BPSK
+			y[i] = 1 - 2 * bits_encoded[i];			// BPSK
 			y[i] += sigma * n(e);					// Add noise
 			y[i] = 2 * y[i] / (sigma * sigma);		// Calculate LLR.
 		}
 
-		// Step4: Perform SC-decoding.
+		// Step4: Perform SCL-decoding.
 		scd.scl_decode(y, bits_decoded);
 
 		// Step5: Count number of error bits.

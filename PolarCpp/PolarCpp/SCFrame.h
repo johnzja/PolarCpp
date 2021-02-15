@@ -24,13 +24,13 @@ public:
 
 	void right_propagate(bit bit_decision);
 
-	inline int get_current_index() const;										// return index{u_i}, 0 <= i <= N-1.
+	int get_current_index() const;										// return index{u_i}, 0 <= i <= N-1.
 
-	inline void copy_from(const SCFrame& src);
+	void copy_from(const SCFrame& src);
 
-	inline void setup_channel_recv(const LLR* channel_recv);
+	void setup_channel_recv(const LLR* channel_recv);
 
-	inline void reset_all();
+	void reset_all();
 
 	virtual ~SCFrame();
 
