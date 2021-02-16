@@ -39,30 +39,29 @@ protected:
 	std::stack<int> stk_killed;
 };
 
-/* Not implemented yet because of difficulty in path duplication when GF(q) is considered. */
+/* Partially-frozen Not implemented yet because of difficulty in path duplication when GF(q) is considered. */
 class Qary_SCL_decoder
 {
 public:
 	Qary_SCL_decoder(int N, int m, const bit* frozen_bits, const GF& alpha, int list_size);
 
-	Qary_SCL_decoder(int N, int m, const GF* frozen_syms, const GF& alpha, int list_size);
+	//Qary_SCL_decoder(int N, int m, const GF* frozen_syms, const GF& alpha, int list_size);
 
 	virtual ~Qary_SCL_decoder();
 
-	virtual void scl_decode(const qary_distribution* probs, bit* estimated_info_bits) = 0;
+	void scl_decode(const qary_distribution* probs, bit* estimated_info_bits);
 
 protected:
-	int L, N, K;	
-	bool partially_frozen;
+	int L, N, K, m;	
+	int q;
 	GF alpha;
 
 	bit* _frozen_bits;
-	GF* _frozen_syms;
 
 	Qary_SCFrame* Q_SCList;
 
-	double* PM, * PM_0, * PM_1;
-	bool* is_active, * active_0, * active_1;
+	double* PM, ** PM_split;
+	bool* is_active, ** active_split;
 	GF** u;
 	qary_distribution* ui_qdist;
 	PM_with_index* pwi;

@@ -238,13 +238,12 @@ void SCL_decoder::scl_decode(const LLR* llr, bit* estimated_info_bits)
 }
 
 /* Q-ary SCL decoder */
-Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const bit* frozen_bits, const GF& alpha, int list_size):partially_frozen(false), L(list_size), N(N), alpha(alpha)
+Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const bit* frozen_bits, const GF& alpha, int list_size) :L(list_size), N(N), alpha(alpha), q(0x1 << m), m(m)
 {
 	ASSERT((N & (N - 1)) == 0);
 	ASSERT((L & (L - 1)) == 0);	// Ensure that L is a power of two.
 	GF_ASSERT(m >= GF_M_MIN && m <= GF_M_MAX);
 
-	_frozen_syms = NULL;
 	_frozen_bits = new bit[N];
 	K = 0;
 	for (int i = 0; i < N; i++)
@@ -271,62 +270,27 @@ Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const bit* frozen_bits, const G
 		u[i] = new GF[K];
 	}
 
-	PM_0 = new double[L];
-	PM_1 = new double[L];
-
-	ui_qdist = qary_distribution::newqd(m, L);
-
-	pwi = new PM_with_index[2 * L];
-	active_0 = new bool[L];
-	active_1 = new bool[L];
-}
-
-Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const GF* frozen_syms, const GF& alpha, int list_size) :partially_frozen(true), L(list_size), N(N), alpha(alpha)
-{
-	ASSERT((N & (N - 1)) == 0);
-	ASSERT((L & (L - 1)) == 0);	// Ensure that L is a power of two.
-	GF_ASSERT(m >= GF_M_MIN && m <= GF_M_MAX);
-
-	_frozen_syms = new GF[N];
-	_frozen_bits = NULL;
-	K = 0;
-	for (int i = 0; i < N; i++)
-	{
-		_frozen_syms[i] = frozen_syms[i];
-		K += (m - __popcnt16(frozen_syms[i].x));		// count the number of information bits.
-	}
-
-	// Construct SCList using operator new.
-	Q_SCList = (Qary_SCFrame*)operator new (L * sizeof(Qary_SCFrame));
-	new (Q_SCList + 0) Qary_SCFrame(N, m, alpha);
-	for (int i = 1; i < L; i++)
-	{
-		new(Q_SCList + i) Qary_SCFrame(*(Q_SCList));
-	}
-
-	// Allocate memory for additional temporary variables.
-	PM = new double[L];
-	is_active = new bool[L];
-	u = new GF * [L];
+	PM_split = new double* [L];
 	for (int i = 0; i < L; i++)
 	{
-		u[i] = new GF[K];
+		PM_split[i] = new double[q];
 	}
 
-	PM_0 = new double[L];
-	PM_1 = new double[L];
 
 	ui_qdist = qary_distribution::newqd(m, L);
 
-	pwi = new PM_with_index[2 * L];
-	active_0 = new bool[L];
-	active_1 = new bool[L];
+	pwi = new PM_with_index[q * L];
+
+	active_split = new bool* [L];
+	for (int i = 0; i < L; i++)
+	{
+		active_split[i] = new bool[q];
+	}
 }
 
 Qary_SCL_decoder::~Qary_SCL_decoder()
 {
 	delete[] _frozen_bits;
-	delete[] _frozen_syms;
 	for (int i = 0; i < L; i++)
 	{
 		(Q_SCList + i)->~Qary_SCFrame();			// Call the destructor explicitly.
@@ -338,10 +302,194 @@ Qary_SCL_decoder::~Qary_SCL_decoder()
 	for (int i = 0; i < L; i++) delete[] u[i];
 
 	delete[] u;
-	delete[] PM_0; delete[] PM_1;
 
 	qary_distribution::destroyqd(ui_qdist, L);
 
 	delete[] pwi;
-	delete[] active_0;	delete[] active_1;
+	for (int i = 0; i < L; i++)
+	{
+		delete[] PM_split[i];
+		delete[] active_split[i];
+	}
+
+}
+
+void Qary_SCL_decoder::scl_decode(const qary_distribution* probs, bit* estimated_info_bits)
+{
+	// Step1: Load channel LLRs.
+	for (int l_index = 0; l_index < L; l_index++)
+	{
+		Q_SCList[l_index].reset_all();
+		Q_SCList[l_index].setup_channel_recv(probs);
+		PM[l_index] = REALMAX;						// initialize path loss as MAX.
+		is_active[l_index] = false;
+	}
+	is_active[0] = true;
+	PM[0] = 0.0;
+
+	int k = 0;
+
+	// Step2: iteratively decode each bits.
+	for (int phi = 0; phi < N; phi++)
+	{
+		while (!stk_killed.empty())stk_killed.pop();
+		for (int i = 0; i < L; i++)
+		{
+			if (!is_active[i]) continue;
+			ui_qdist[i] = Q_SCList[i].left_propagate();
+		}
+
+		// completely frozen. using _frozen_bits.
+		if (_frozen_bits[phi])
+		{
+			for (int l_index = 0; l_index < L; l_index++)
+			{
+				if (!is_active[l_index]) continue;
+				PM[l_index] -= log(ui_qdist[l_index].dist[0]);
+			}
+		}
+		else
+		{
+			// This is an info bit. Step1: Duplicate all paths.
+			int num_active = 0;
+			for (int l_index = 0; l_index < L; l_index++)
+			{
+				if (!is_active[l_index])
+				{
+					for (int j = 0; j < q; j++)
+					{
+						PM_split[l_index][j] = REALMAX;
+					}
+				}
+				else
+				{
+					for (int j = 0; j < q; j++)
+					{
+						PM_split[l_index][j] = PM[l_index] - log(ui_qdist[l_index].dist[j]);
+					}
+					num_active++;
+				}
+			}
+
+			// Step2: Find at most L paths with smallest path measure.
+			int num_paths_selected = min(L, q * num_active);
+			for (int i = 0; i < L; i++)
+			{
+				for (int j = 0; j < q; j++)
+				{
+					pwi[i * q + j].x = PM_split[i][j];
+					pwi[i * q + j].index = i * q + j;
+				}
+			}
+
+			std::sort(pwi, pwi + q * L, [](const PM_with_index& p1, const PM_with_index& p2)->bool {return p1.x < p2.x; });		// using lambda expression to simplify the comparing code.
+
+			// identify the killed paths.
+			for (int i = 0; i < L; i++)
+			{
+				for (int j = 0; j < q; j++)
+				{
+					active_split[i][j] = false;
+				}
+			}
+
+			int t = 0;
+			while (num_paths_selected--)			// label the survived paths with 'true' in 2-D array active_split.
+			{
+				PM_with_index& p = pwi[t++];
+				int _q = p.index % q;
+				int _l = p.index / q;
+				active_split[_l][_q] = true;
+			}
+
+
+			for (int i = 0; i < L; i++)
+			{
+				bool decoder_killed = true;
+				for (int j = 0; j < q; j++)
+				{
+					if (active_split[i][j])
+					{
+						decoder_killed = false;
+						break;
+					}
+				}
+
+				if (decoder_killed)
+				{
+					stk_killed.push(i);
+					is_active[i] = false;
+				}
+			}
+
+			// duplicate decoding paths if necessary.
+			for (int i = 0; i < L; i++)
+			{
+				if (!is_active[i]) continue;
+
+				bool first_path = true;
+				for (int j = 0; j < q; j++)
+				{
+					if (active_split[i][j])
+					{
+						if (first_path)
+						{
+							first_path = false;
+							u[i][k] = GF(m, j);
+							PM[i] = PM_split[i][j];
+						}
+						else
+						{
+							int new_path = stk_killed.top();
+							stk_killed.pop();
+							is_active[new_path] = true;
+							Q_SCList[new_path].copy_from(Q_SCList[i]);
+
+							for (int p = 0; p < k; p++)
+							{
+								u[new_path][p] = u[i][p];
+							}
+							u[new_path][k] = GF(m, j);
+							PM[new_path] = PM_split[i][j];
+						}
+					}
+				}
+			}
+
+			// point to the next GF element to be decoded.
+			k++;
+		}
+
+		// Partial-sum return.
+		for (int i = 0; i < L; i++)
+		{
+			if (!is_active[i]) continue;
+			if (_frozen_bits[phi])
+				Q_SCList[i].right_propagate(GF(m, 0));
+			else
+				Q_SCList[i].right_propagate(u[i][k - 1]);		// k++ executed when it is non-frozen.
+		}
+
+		// lazy_copy automatially configured.
+	}
+
+	// Step3: Find the path with smallest path measure.
+	for (int i = 0; i < L; i++)
+	{
+		pwi[i].index = i;
+		pwi[i].x = PM[i];
+	}
+	std::sort(pwi, pwi + L, [](const PM_with_index& p1, const PM_with_index& p2)->bool {return p1.x < p2.x; });		// using lambda expression to simplify the comparing code.
+
+	GF* best_sequence = u[pwi[0].index];
+
+	int bk = 0;
+	for (int i = 0; i < K; i++)
+	{
+		for (int j = 0; j < q; j++)
+		{
+			estimated_info_bits[bk++] = (bit)(best_sequence[i].x & (0x1 << j));
+		}
+	}
+	return;
 }
