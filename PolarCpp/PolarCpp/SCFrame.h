@@ -60,11 +60,11 @@ public:
 
 	void right_propagate(const GF& gf_decision);
 
-	inline void copy_from(const Qary_SCFrame& src);
+	void copy_from(const Qary_SCFrame& src);
 
-	inline void setup_channel_recv(const qary_distribution* channel_recv);
+	void setup_channel_recv(const qary_distribution* channel_recv);
 
-	inline void reset_all();
+	void reset_all();
 
 	virtual ~Qary_SCFrame();
 

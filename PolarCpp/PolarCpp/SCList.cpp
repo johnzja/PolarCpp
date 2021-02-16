@@ -251,7 +251,7 @@ Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const bit* frozen_bits, const G
 		_frozen_bits[i] = frozen_bits[i];		// copy the frozen bits in case the input pointer *frozen_bits is deleted after the class construction.
 		if (!frozen_bits[i])K++;
 	}
-	K *= m;
+	//K *= m;
 
 	// Construct SCList using operator new.
 	Q_SCList = (Qary_SCFrame*)operator new (L * sizeof(Qary_SCFrame));
@@ -267,7 +267,7 @@ Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const bit* frozen_bits, const G
 	u = new GF * [L];
 	for (int i = 0; i < L; i++)
 	{
-		u[i] = new GF[K];
+		u[i] = new GF[K];		// K output symbols.
 	}
 
 	PM_split = new double* [L];
@@ -311,7 +311,8 @@ Qary_SCL_decoder::~Qary_SCL_decoder()
 		delete[] PM_split[i];
 		delete[] active_split[i];
 	}
-
+	delete[] PM_split;
+	delete[] active_split;
 }
 
 void Qary_SCL_decoder::scl_decode(const qary_distribution* probs, bit* estimated_info_bits)
@@ -486,7 +487,7 @@ void Qary_SCL_decoder::scl_decode(const qary_distribution* probs, bit* estimated
 	int bk = 0;
 	for (int i = 0; i < K; i++)
 	{
-		for (int j = 0; j < q; j++)
+		for (int j = 0; j < m; j++)
 		{
 			estimated_info_bits[bk++] = (bit)(best_sequence[i].x & (0x1 << j));
 		}
