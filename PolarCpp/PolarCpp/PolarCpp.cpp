@@ -362,14 +362,15 @@ double test_SCL(int min_errors = 800)
 	// Study polar codes using normal distribution generator.
 	// bit frozen_bits[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, };
 
-	bit frozen_bits[] = { 1,1,1,0,1,0,0,0 };
-	int N = 8, M = 4;
+	bit frozen_bits[] = { 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
+	int N = 16, M = 8;
+	int L = 16;
 
 	ASSERT(sizeof(frozen_bits) == N);
 
 	double Ebn0 = 2.5;
 	double sigma = 1 / sqrt(2 * (M / ((double)(N)))) * pow(10, -Ebn0 / 20);
-	cout << "Evaluate SCL @ Eb/n0 = " << Ebn0 << endl;
+	cout << "Evaluate SCL @ Eb/n0 = " << Ebn0 << ", L = " << L << endl;
 	cout << "Code configuration: (" << N << ", " << M << ") binary Polar code." << endl;
 
 	bit* bits_to_encode = new bit[M];
@@ -378,7 +379,7 @@ double test_SCL(int min_errors = 800)
 	LLR* y = new LLR[N];
 
 	// Construct SCL decoder.
-	SCL_decoder scd(N, frozen_bits, 4);
+	SCL_decoder scd(N, frozen_bits, L);
 
 	int block_error_cnt = 0;
 	int N_runs = 0;
@@ -439,12 +440,12 @@ double test_qary_SCL(int min_errors = 800)
 
 	int N = 8, M = 4;
 	int m = 2;						// 4-ary code.
-	int L = 4;
+	int L = 16;
 
 	double R = 0.5;					// Code rate = 0.5
 	double Ebn0 = 2.5;
 	double sigma = 1 / sqrt(2 * R) * pow(10, -Ebn0 / 20);
-	cout << "Evaluate 4-ary SCL @ Eb/n0 = " << Ebn0 << endl;
+	cout << "Evaluate 4-ary SCL @ Eb/n0 = " << Ebn0 << ", L = " << L << endl;
 	cout << "Code configuration: (" << N << ", " << M << ") quaternary Polar code" << endl;
 
 	int N_bits = N * m;
@@ -508,6 +509,7 @@ double test_qary_SCL(int min_errors = 800)
 	cout << "Test q-ary SCL complete!" << endl;
 	return r;
 }
+
 int main()
 {
 #ifdef _CRTDBG_MAP_ALLOC
@@ -515,9 +517,14 @@ int main()
 	//_CrtSetBreakAlloc(289);
 #endif
 
-	test_qary_SCL(1600);
+	test_qary_SCL(3200);
 	cout << endl;
-	//test_qary_SC(1600);
+	test_qary_SC(3200);
+	cout << endl;
+	test_SCL(3200);
+	cout << endl;
+	test_SC(3200);
+	cout << endl;
 
 	GF::destroy_GFTable();
 	return 0;
