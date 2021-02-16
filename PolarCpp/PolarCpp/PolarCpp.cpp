@@ -1,19 +1,19 @@
 ﻿// PolarCpp.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
-#define CRTDBG_MAP_ALLOC
-
+#define _CRTDBG_MAP_ALLOC
 
 #include <stdlib.h>
 #include <crtdbg.h>
 
-#include <iostream>
 #include "SC.h"
+#include "SCList.h"
 
-#include <vector>
-#include <random>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+#include <vector>
+#include <random>
 #include <time.h>
 
 
@@ -327,7 +327,7 @@ double test_qary_SC(int min_errors = 800)
 
 		// Step4: Perform SC-decoding.
 		//scd.sc_decode(y, bits_decoded);
-		scd.sc_decode_qary(y, bits_decoded);
+		scd.sc_decode_qary(y, false, NULL, bits_decoded);
 
 		// Step5: Count number of error blocks.
 		for (int i = 0; i < M_bits; i++)
@@ -354,16 +354,177 @@ double test_qary_SC(int min_errors = 800)
 	return r;
 }
 
+double test_SCL(int min_errors = 800)
+{
+	std::default_random_engine e;
+	std::normal_distribution<double> n(0, 1);
+
+	// Study polar codes using normal distribution generator.
+	// bit frozen_bits[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, };
+
+	bit frozen_bits[] = { 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
+	int N = 16, M = 8;
+	int L = 16;
+
+	ASSERT(sizeof(frozen_bits) == N);
+
+	double Ebn0 = 2.5;
+	double sigma = 1 / sqrt(2 * (M / ((double)(N)))) * pow(10, -Ebn0 / 20);
+	cout << "Evaluate SCL @ Eb/n0 = " << Ebn0 << ", L = " << L << endl;
+	cout << "Code configuration: (" << N << ", " << M << ") binary Polar code." << endl;
+
+	bit* bits_to_encode = new bit[M];
+	bit* bits_encoded = new bit[N];
+	bit* bits_decoded = new bit[M];
+	LLR* y = new LLR[N];
+
+	// Construct SCL decoder.
+	SCL_decoder scd(N, frozen_bits, L);
+
+	int block_error_cnt = 0;
+	int N_runs = 0;
+
+	/* START simulation */
+	while (block_error_cnt < min_errors)
+	{
+		// Step1: Generate random bits to be encoded.
+		for (int i = 0; i < M; i++)
+			bits_to_encode[i] = (rand() & 0x1);
+
+		// Step2: Polar-encode.
+		polar_encode(bits_to_encode, bits_encoded, N, frozen_bits);
+
+		// Step3: Add noise.
+		for (int i = 0; i < N; i++)
+		{
+			y[i] = 1 - 2 * bits_encoded[i];			// BPSK
+			y[i] += sigma * n(e);					// Add noise
+			y[i] = 2 * y[i] / (sigma * sigma);		// Calculate LLR.
+		}
+
+		// Step4: Perform SCL-decoding.
+		scd.scl_decode(y, bits_decoded);
+
+		// Step5: Count number of error bits.
+		for (int i = 0; i < M; i++)
+		{
+			if (bits_decoded[i] != bits_to_encode[i])
+			{
+				block_error_cnt++;
+				break;
+			}
+		}
+		N_runs++;
+	}
+
+	double r;
+	cout << "BLER = " << (r = ((double)block_error_cnt) / N_runs) << endl;
+
+	delete[] bits_to_encode;
+	delete[] bits_encoded;
+	delete[] y;
+	delete[] bits_decoded;
+
+	cout << "Test SCL complete!" << endl;
+	return r;
+}
+
+double test_qary_SCL(int min_errors = 800)
+{
+	std::default_random_engine e;
+	std::normal_distribution<double> n(0, 1);
+
+	// Study polar codes using normal distribution generator.
+	// Use (8,4) 4-ary code with partially frozen.
+	bit frozen_bits[] = { 1,1,1,0,1,0,0,0 };
+
+	int N = 8, M = 4;
+	int m = 2;						// 4-ary code.
+	int L = 16;
+
+	double R = 0.5;					// Code rate = 0.5
+	double Ebn0 = 2.5;
+	double sigma = 1 / sqrt(2 * R) * pow(10, -Ebn0 / 20);
+	cout << "Evaluate 4-ary SCL @ Eb/n0 = " << Ebn0 << ", L = " << L << endl;
+	cout << "Code configuration: (" << N << ", " << M << ") quaternary Polar code" << endl;
+
+	int N_bits = N * m;
+	int M_bits = M * m;
+
+	bit* bits_to_encode = new bit[M_bits];
+	GF* syms_encoded = new GF[N];
+	bit* bits_decoded = new bit[M_bits];
+
+	// generate qary_distribution objects.
+	qary_distribution* y = qary_distribution::newqd(m, N);
+
+	// Find primitive alpha.
+	GF t(m, 0);
+	GF alpha = t.get_prim();
+
+	// Construct q-ary SCL decoder.
+	Qary_SCL_decoder scld(N, m, frozen_bits, alpha, L);
+
+	int block_error_cnt = 0;
+	int N_runs = 0;
+
+	/* START simulation */
+	while (block_error_cnt < min_errors)
+	{
+		// Step1: Generate random bits to be encoded.
+		for (int i = 0; i < M_bits; i++)
+			bits_to_encode[i] = (rand() & 0x1);
+
+		// Step2: Polar-encode.
+		//polar_encode(bits_to_encode, bits_encoded, N, frozen_bits);
+		qary_polar_encode(bits_to_encode, syms_encoded, N, m, frozen_bits, alpha);
+
+		// Step3: Add noise.
+		qary_modem_bpsk(syms_encoded, y, N, sigma, e, n);
+
+		// Step4: Perform SCList-decoding.
+		scld.scl_decode(y, bits_decoded);
+
+		// Step5: Count number of error blocks.
+		for (int i = 0; i < M_bits; i++)
+		{
+			if (bits_decoded[i] != bits_to_encode[i])
+			{
+				block_error_cnt++;
+				break;
+			}
+		}
+		N_runs++;
+	}
+
+	double r;
+	cout << "BLER = " << (r = ((double)block_error_cnt) / N_runs) << endl;
+
+	delete[] bits_to_encode;
+	delete[] syms_encoded;
+	//delete[] y;
+	qary_distribution::destroyqd(y, N);
+	delete[] bits_decoded;
+
+	cout << "Test q-ary SCL complete!" << endl;
+	return r;
+}
+
 int main()
 {
-#ifdef CRTDBG_MAP_ALLOC
+#ifdef _CRTDBG_MAP_ALLOC
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-	//_CrtSetBreakAlloc(245);
+	//_CrtSetBreakAlloc(289);
 #endif
 
-	test_SC(1600);
+	test_qary_SCL(3200);
 	cout << endl;
-	test_qary_SC(1600);
+	test_qary_SC(3200);
+	cout << endl;
+	test_SCL(3200);
+	cout << endl;
+	test_SC(3200);
+	cout << endl;
 
 	GF::destroy_GFTable();
 	return 0;

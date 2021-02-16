@@ -1,10 +1,12 @@
 #include <intrin.h>
 #include "SC.h"
 
-using namespace std;
+#include <algorithm>
 
-#define min(x,y) ((x<y)?(x):(y))
 
+#define min(x,y) (((x)<(y))?(x):(y))
+
+/* Decoders */
 SC_Decoder::SC_Decoder(int N, const bit* frozen_bits, bool binary):N(N)
 {
 	ASSERT(!(N&(N - 1)));	// Ensure N is power of 2.
@@ -207,40 +209,6 @@ void SC_Decoder::sc_decode(const LLR* llr, bit* estimated_info_bits)
 
 // TODO: Adapt "bit" in the code into any q-ary symbol.
 
-/*           q-ary probabilities                 */
-// Posteriori probability distribution on GF(q).
-qary_distribution::qary_distribution(int m):m(m)
-{
-	GF_ASSERT(m >= GF_M_MIN && m <= GF_M_MAX);
-	L = (0x1) << m;
-	dist = new double[L];
-}
-
-qary_distribution::~qary_distribution()
-{
-	delete[] dist;
-}
-
-qary_distribution* qary_distribution::newqd(int m, int N)
-{
-	// generate qary_distribution objects.
-	qary_distribution* y = (qary_distribution*) operator new(N * sizeof(qary_distribution));
-	//qary_distribution* y = new qary_distribution[N];
-	for (int i = 0; i < N; i++)
-	{
-		new (y + i)qary_distribution(m);	// initialize, using "placement new".
-	}
-	return y;
-}
-
-void qary_distribution::destroyqd(qary_distribution* pqd, int N)
-{
-	for (int i = 0; i < N; i++)
-	{
-		(pqd + i)->~qary_distribution();
-	}
-	operator delete ((void*)pqd);		// operator new.
-}
 
 void SC_Decoder_qary::up_calculate(const qary_distribution* llr_x1, const qary_distribution* llr_x2, qary_distribution* result, GF alpha, int len)
 {
@@ -360,7 +328,7 @@ int SC_Decoder_qary::find_max(const qary_distribution& dist)
 	return index;
 }
 
-void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estimated_info_bits)
+void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs,bool is_Genie,const GF* true_u, bit* estimated_info_bits)
 {
 	// Assume the array "estimated_info_bits" has length K.
 	int index_1, index_2, op_len;
@@ -436,9 +404,15 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estima
 					temp_x >>= 1;
 				}
 				if (phi_mod_2 == 0)
-					CL[0] = hard_decision;
+					if (is_Genie)
+						CL[0] = true_u[phi];
+					else
+						CL[0] = hard_decision;
 				else
-					CR[0] = hard_decision;
+					if (is_Genie)
+						CR[0] = true_u[phi];
+					else
+						CR[0] = hard_decision;
 
 				k += m;
 			}
@@ -477,9 +451,15 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs, bit* estima
 				}
 
 				if (phi_mod_2 == 0)
-					CL[0] = hard_decision;
+					if (is_Genie)
+						CL[0] = true_u[phi];
+					else
+						CL[0] = hard_decision;
 				else
-					CR[0] = hard_decision;
+					if (is_Genie)
+						CR[0] = true_u[phi];
+					else
+						CR[0] = hard_decision;
 			}
 		}
 
@@ -552,3 +532,5 @@ qary_distribution* SC_Decoder_qary::convert_llr_into_qdist(int N_qary, int m, do
 	delete[] bpsk_posteriori_1;
 	return result;
 }
+
+

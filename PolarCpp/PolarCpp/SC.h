@@ -1,8 +1,12 @@
 #pragma once
 
+#include "GF.h"
+#include "Qary_dist.h"
+
 #include <cassert>
 #include <cmath>
-#include "GF.h"
+
+
 using namespace std;
 
 typedef unsigned int bits32;
@@ -10,9 +14,12 @@ typedef unsigned short bits16;
 //typedef vector<bool> BitVec;
 //typedef vector<double> LLRVec;
 #define ASSERT assert
+#define REALMAX 1e20
 
 typedef bool bit;
 typedef double LLR;
+
+
 
 /* Successive Cancellation Decoder for binary polar codes. */
 class SC_Decoder
@@ -40,33 +47,19 @@ protected:
 	bit* _frozen_bits;
 };
 
-
+// SC-List implementation: using SC-Frame class.
 
 // q-ary SC decoder.
 class SC_Decoder_qary;
 
-class qary_distribution
-{
-	friend class SC_Decoder_qary;
-public:
-	qary_distribution(int m);
-	~qary_distribution();
 
-	static qary_distribution* newqd(int m, int N);
-	static void destroyqd(qary_distribution* pqd, int N);
-public:
-	double* dist;
-public:
-	int m;
-	int L;
-};
 
 class SC_Decoder_qary : public SC_Decoder
 {
 public:
 	SC_Decoder_qary(int N, int m, const bit* frozen_bits, const GF& alpha);					// constructor of fully-frozen decoder.
 	SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& alpha);				// constructor of partially-frozen decoder.
-	void sc_decode_qary(const qary_distribution* probs, bit* estimated_info_bits);
+	void sc_decode_qary(const qary_distribution* probs, bool is_Genie, const GF* true_u, bit* estimated_info_bits);
 
 	static qary_distribution* convert_llr_into_qdist(int N_qary, int m, double* llr_arr);
 	virtual ~SC_Decoder_qary();
@@ -85,3 +78,5 @@ protected:
 	GF alpha;
 	int m;
 };
+
+

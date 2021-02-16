@@ -1,6 +1,7 @@
 #pragma once
 #include <cassert>
 #include <vector>
+#include <iostream>
 using namespace std;
 
 #define GF_ASSERT assert

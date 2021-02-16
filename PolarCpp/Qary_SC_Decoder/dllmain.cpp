@@ -38,16 +38,16 @@ int get_int(const mxArray* pm)
 		decoder_config.is_LLR = { true, false}						default: true. If it is false, then posteriori probabilities are input.
 */
 
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
+void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 {
 	/*  Step1: Parameter format check. */
 	if (nlhs != 1)
 	{
 		mexErrMsgTxt("Only 1 output vector expected.");
 	}
-	else if (nrhs != 6)
+	else if (nrhs != 7)
 	{
-		mexErrMsgTxt("Six input parameters expected");
+		mexErrMsgTxt("Seven input parameters expected");
 	}
 
 	// Fetch 6 parameters.
@@ -57,20 +57,21 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	const mxArray* mx_frozens			= prhs[3];
 	const mxArray* mx_alpha				= prhs[4];
 	const mxArray* mx_decoder_config	= prhs[5];
+	const mxArray* mx_true_u			= prhs[6];
 
 	// Validity check.
 	/* Step2: Fetch the configuration boolean switches. */
 	bool partially_frozen	= false;
 	bool is_qary			= true;
 	bool is_LLR				= true;
-	
-	
-	if (!mxIsStruct(mx_decoder_config)) mexErrMsgTxt("decoder_config must be a struct.");
-	mxArray *mx_partially_frozen, *mx_is_qary, *mx_is_LLR;
-	mx_partially_frozen = mxGetField(mx_decoder_config, 0, "partially_frozen");		if (mx_partially_frozen && mxIsLogical(mx_partially_frozen)) partially_frozen = mxGetLogicals(mx_partially_frozen)[0];
-	mx_is_qary			= mxGetField(mx_decoder_config, 0, "is_qary");				if (mx_is_qary && mxIsLogical(mx_is_qary)) is_qary = mxGetLogicals(mx_is_qary)[0];
-	mx_is_LLR			= mxGetField(mx_decoder_config, 0, "is_LLR");				if (mx_is_LLR && mxIsLogical(mx_is_LLR)) is_LLR = mxGetLogicals(mx_is_LLR)[0];
+	bool is_Genie			= false;
 
+	if (!mxIsStruct(mx_decoder_config)) mexErrMsgTxt("decoder_config must be a struct.");
+	mxArray* mx_partially_frozen, * mx_is_qary, * mx_is_LLR, * mx_is_Genie;
+	mx_partially_frozen = mxGetField(mx_decoder_config, 0, "partially_frozen");			if (mx_partially_frozen && mxIsLogical(mx_partially_frozen))	partially_frozen = mxGetLogicals(mx_partially_frozen)[0];
+	mx_is_qary = mxGetField(mx_decoder_config, 0, "is_qary");							if (mx_is_qary && mxIsLogical(mx_is_qary))						is_qary = mxGetLogicals(mx_is_qary)[0];
+	mx_is_LLR = mxGetField(mx_decoder_config, 0, "is_LLR");								if (mx_is_LLR && mxIsLogical(mx_is_LLR))						is_LLR = mxGetLogicals(mx_is_LLR)[0];
+	mx_is_Genie = mxGetField(mx_decoder_config, 0, "is_Genie");							if (mx_is_Genie && mxIsLogical(mx_is_Genie))					is_Genie = mxGetLogicals(mx_is_Genie)[0];
 
 	/* Step3: Fetch size parameters. */
 	if (mxGetM(mx_N) != 1 || mxGetN(mx_N) != 1) mexErrMsgTxt("Input N must be an integer.");
@@ -86,7 +87,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	/*  Step4: Construct the decoder according to configurations. */
 	GF* frozen_syms		= NULL;
+	GF* true_u			= NULL;
 	bit* frozen_bits	= NULL;
+
+	double* true_u_arr = mxGetDoubles(mx_true_u);
+	true_u = new GF[N];
+	for (int i = 0; i < N; i++)
+	{
+		true_u[i] = GF(m, (short)(true_u_arr[i]));
+	}
 
 	size_t N_rows = mxGetM(mx_frozens);
 	if (N_rows != 1)mexErrMsgTxt("Input frozens must be a row vector.");
@@ -107,7 +116,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	}
 	else
 	{
-		
 		// must be logical or double.
 		if (!mxIsLogical(mx_frozens))
 		{
@@ -146,7 +154,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		if (is_qary)
 		{
 			// Q-ary SC. 
-			ASSERT(N_cols == (N*m));
+			ASSERT(N_cols == (N * m));
 			SC_Decoder_qary* p_SC_Decoder_qary = NULL;
 
 			// Construct q-ary distributions from input LLRs.
@@ -155,7 +163,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			if (partially_frozen)
 			{
 				p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_syms, prim_element);
-				
+
 			}
 			else
 			{
@@ -165,7 +173,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			row_vector[1] = p_SC_Decoder_qary->get_K();
 			plhs[0] = mxCreateLogicalArray(2, row_vector);
 			bit* result_ptr = mxGetLogicals(plhs[0]);
-			p_SC_Decoder_qary->sc_decode_qary(qdist, result_ptr);		// Perform q-ary SC.
+			p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);		// Perform q-ary SC.
 
 			delete p_SC_Decoder_qary;
 			qary_distribution::destroyqd(qdist, N);						// ALERT: function convert_llr_into_qdist will use qary_distribution::newqd.
@@ -191,7 +199,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	{
 		if (!is_qary) mexErrMsgTxt("Binary channel input must be in LLR form.");
 
-		// Read out the distribution matrix directly from 
+		// Read out the distribution matrix directly from the MATLAB double array mx_channel_recv.
 		size_t N_rows = mxGetM(mx_channel_recv);
 		if (N_rows != (0x1 << m))mexErrMsgTxt("Input probabilities must be a matrix of 2^m rows.");
 		if (!mxIsDouble(mx_channel_recv)) mexErrMsgTxt("Input probabilities must be doubles.");
@@ -206,7 +214,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			qary_distribution& qd = qdist[i];
 			for (int j = 0; j < q; j++)
 			{
-				qd.dist[j] = channel_recv_probs[i*q + j];
+				qd.dist[j] = channel_recv_probs[i * q + j];
 			}
 		}
 
@@ -225,7 +233,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		row_vector[1] = p_SC_Decoder_qary->get_K();
 		plhs[0] = mxCreateLogicalArray(2, row_vector);
 		bit* result_ptr = mxGetLogicals(plhs[0]);
-		p_SC_Decoder_qary->sc_decode_qary(qdist, result_ptr);	// Perform q-ary SC.
+		p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);	// Perform q-ary SC.
 
 		qary_distribution::destroyqd(qdist, N);
 		delete p_SC_Decoder_qary;
@@ -233,6 +241,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
 	delete[] frozen_syms;
+	delete[] true_u;
 	delete[] frozen_bits;
 	//GF::destroy_GFTable();
 	return;
