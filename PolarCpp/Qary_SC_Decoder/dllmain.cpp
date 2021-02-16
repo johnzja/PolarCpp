@@ -38,26 +38,33 @@ int get_int(const mxArray* pm)
 		decoder_config.is_LLR = { true, false}						default: true. If it is false, then posteriori probabilities are input.
 */
 
+GF* global_frozen_syms = NULL;
+bit* global_frozen_bits = NULL;	// They do not need to be deleted.
+
 void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 {
 	/*  Step1: Parameter format check. */
 	if (nlhs != 1)
 	{
-		mexErrMsgTxt("Only 1 output vector expected.");
+		mexErrMsgTxt("Only 1 output (row) vector expected.");
 	}
-	else if (nrhs != 7)
+	else if (nrhs != 7 && nrhs != 6)
 	{
-		mexErrMsgTxt("Seven input parameters expected");
+		mexErrMsgTxt("Seven or six input parameters expected.");
 	}
 
-	// Fetch 6 parameters.
+	// Fetch 6 or 7 parameters.
 	const mxArray* mx_channel_recv		= prhs[0];
 	const mxArray* mx_N					= prhs[1];
 	const mxArray* mx_m					= prhs[2];
 	const mxArray* mx_frozens			= prhs[3];
 	const mxArray* mx_alpha				= prhs[4];
 	const mxArray* mx_decoder_config	= prhs[5];
-	const mxArray* mx_true_u			= prhs[6];
+	const mxArray* mx_true_u			= NULL;
+	if (nrhs > 6)
+	{
+		mx_true_u = prhs[6];
+	}
 
 	// Validity check.
 	/* Step2: Fetch the configuration boolean switches. */
@@ -65,13 +72,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	bool is_qary			= true;
 	bool is_LLR				= true;
 	bool is_Genie			= false;
+	bool update_frozen		= true;
 
 	if (!mxIsStruct(mx_decoder_config)) mexErrMsgTxt("decoder_config must be a struct.");
-	mxArray* mx_partially_frozen, * mx_is_qary, * mx_is_LLR, * mx_is_Genie;
+	mxArray* mx_partially_frozen, * mx_is_qary, * mx_is_LLR, * mx_is_Genie, * mx_update_frozen;
 	mx_partially_frozen = mxGetField(mx_decoder_config, 0, "partially_frozen");			if (mx_partially_frozen && mxIsLogical(mx_partially_frozen))	partially_frozen = mxGetLogicals(mx_partially_frozen)[0];
 	mx_is_qary = mxGetField(mx_decoder_config, 0, "is_qary");							if (mx_is_qary && mxIsLogical(mx_is_qary))						is_qary = mxGetLogicals(mx_is_qary)[0];
 	mx_is_LLR = mxGetField(mx_decoder_config, 0, "is_LLR");								if (mx_is_LLR && mxIsLogical(mx_is_LLR))						is_LLR = mxGetLogicals(mx_is_LLR)[0];
 	mx_is_Genie = mxGetField(mx_decoder_config, 0, "is_Genie");							if (mx_is_Genie && mxIsLogical(mx_is_Genie))					is_Genie = mxGetLogicals(mx_is_Genie)[0];
+	mx_update_frozen = mxGetField(mx_decoder_config, 0, "update_frozen");				if (mx_update_frozen && mxIsLogical(mx_update_frozen))			update_frozen = mxGetLogicals(mx_update_frozen)[0];
 
 	/* Step3: Fetch size parameters. */
 	if (mxGetM(mx_N) != 1 || mxGetN(mx_N) != 1) mexErrMsgTxt("Input N must be an integer.");
@@ -90,11 +99,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	GF* true_u			= NULL;
 	bit* frozen_bits	= NULL;
 
-	double* true_u_arr = mxGetDoubles(mx_true_u);
-	true_u = new GF[N];
-	for (int i = 0; i < N; i++)
+	if (is_Genie)
 	{
-		true_u[i] = GF(m, (short)(true_u_arr[i]));
+		// Construct true_u array according to input.
+		double* true_u_arr = mxGetDoubles(mx_true_u);
+		true_u = new GF[N];
+		for (int i = 0; i < N; i++)
+		{
+			true_u[i] = GF(m, (short)(true_u_arr[i]));
+		}
 	}
 
 	size_t N_rows = mxGetM(mx_frozens);
@@ -102,6 +115,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	size_t N_cols = mxGetN(mx_frozens);
 	if (N_cols != N) mexErrMsgTxt("Input frozens must be of length N.");
 
+	// Deal with frozen_array.
 	if (partially_frozen)
 	{
 		// must be double type.
