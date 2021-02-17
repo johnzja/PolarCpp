@@ -24,6 +24,8 @@ public:
 
 	void scl_decode(const LLR* llr, bit* estimated_info_bits);
 
+	int get_K() const;
+
 protected:
 	int L;	// list size.
 	int N;	// code length.
@@ -50,6 +52,8 @@ public:
 	virtual ~Qary_SCL_decoder();
 
 	void scl_decode(const qary_distribution* probs, bit* estimated_info_bits);
+
+	int get_K() const;
 
 protected:
 	int L, N, K, m;	
