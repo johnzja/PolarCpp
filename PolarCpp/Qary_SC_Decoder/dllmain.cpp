@@ -20,6 +20,8 @@ int get_int(const mxArray* pm)
 		m						q = 2^m.
 		frozen_syms				q-ary array of length N, specifying which channels are frozen.
 		alpha					Primitive element used in encoding.
+		decoder_config			Configuration structure.
+		true_u					True info sequence used in Genie-aided SC. (optional)
 
 		--------------------------------------------------------------------
 
@@ -30,7 +32,9 @@ int get_int(const mxArray* pm)
 		m						q = 2^m.
 		frozen_bits				bit array of length N, specifying which channels are frozen.
 		alpha					Primitive element used in encoding.
-		
+		decoder_config			Configuration structure.
+		true_u					True info sequence used in Genie-aided SC. (optional)
+
 		--------------------------------------------------------------------
 
 		decoder_config.partially_frozen = { true, false }			default: false
@@ -39,7 +43,11 @@ int get_int(const mxArray* pm)
 */
 
 GF* global_frozen_syms = NULL;
-bit* global_frozen_bits = NULL;	// They do not need to be deleted.
+bit* global_frozen_bits = NULL;	
+
+SC_Decoder* global_sc_decoder = NULL;
+SC_Decoder_qary* global_sc_decoder_qary = NULL;
+
 
 void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 {
@@ -72,15 +80,22 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	bool is_qary			= true;
 	bool is_LLR				= true;
 	bool is_Genie			= false;
-	bool update_frozen		= true;
+	bool update_decoder		= true;
 
 	if (!mxIsStruct(mx_decoder_config)) mexErrMsgTxt("decoder_config must be a struct.");
-	mxArray* mx_partially_frozen, * mx_is_qary, * mx_is_LLR, * mx_is_Genie, * mx_update_frozen;
+	mxArray* mx_partially_frozen, * mx_is_qary, * mx_is_LLR, * mx_is_Genie, * mx_update_decoder;
 	mx_partially_frozen = mxGetField(mx_decoder_config, 0, "partially_frozen");			if (mx_partially_frozen && mxIsLogical(mx_partially_frozen))	partially_frozen = mxGetLogicals(mx_partially_frozen)[0];
 	mx_is_qary = mxGetField(mx_decoder_config, 0, "is_qary");							if (mx_is_qary && mxIsLogical(mx_is_qary))						is_qary = mxGetLogicals(mx_is_qary)[0];
 	mx_is_LLR = mxGetField(mx_decoder_config, 0, "is_LLR");								if (mx_is_LLR && mxIsLogical(mx_is_LLR))						is_LLR = mxGetLogicals(mx_is_LLR)[0];
 	mx_is_Genie = mxGetField(mx_decoder_config, 0, "is_Genie");							if (mx_is_Genie && mxIsLogical(mx_is_Genie))					is_Genie = mxGetLogicals(mx_is_Genie)[0];
-	mx_update_frozen = mxGetField(mx_decoder_config, 0, "update_frozen");				if (mx_update_frozen && mxIsLogical(mx_update_frozen))			update_frozen = mxGetLogicals(mx_update_frozen)[0];
+
+	mx_update_decoder = mxGetField(mx_decoder_config, 0, "update_decoder");
+	if (mx_update_decoder && mxIsLogical(mx_update_decoder))
+	{
+		bool* t = mxGetLogicals(mx_update_decoder);
+		update_decoder = t[0];
+		t[0] = false;	// if you need to update the frozen array, then you should assign the "update_frozen" component as true again.
+	}
 
 	/* Step3: Fetch size parameters. */
 	if (mxGetM(mx_N) != 1 || mxGetN(mx_N) != 1) mexErrMsgTxt("Input N must be an integer.");
@@ -99,6 +114,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	GF* true_u			= NULL;
 	bit* frozen_bits	= NULL;
 
+	// Tackle with true_u array.
 	if (is_Genie)
 	{
 		// Construct true_u array according to input.
@@ -115,56 +131,61 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	size_t N_cols = mxGetN(mx_frozens);
 	if (N_cols != N) mexErrMsgTxt("Input frozens must be of length N.");
 
-	// Deal with frozen_array.
-	if (partially_frozen)
+	// Deal with frozen_array and global decoder constructions.
+	if (update_decoder)
 	{
-		// must be double type.
-		if (!mxIsDouble(mx_frozens)) mexErrMsgTxt("Input frozens must be of type double if partially-frozen.");
-		double* frozen_arr = mxGetDoubles(mx_frozens);
+		if (partially_frozen)
+		{
+			// must be double type.
+			if (!mxIsDouble(mx_frozens)) mexErrMsgTxt("Input frozens must be of type double if partially-frozen.");
+			double* frozen_arr = mxGetDoubles(mx_frozens);
 
-		frozen_syms = new GF[N];
-		for (int i = 0; i < N; i++)
-		{
-			frozen_syms[i] = GF(m, (short)(frozen_arr[i]));
-		}
-	}
-	else
-	{
-		// must be logical or double.
-		if (!mxIsLogical(mx_frozens))
-		{
-			if (!mxIsDouble(mx_frozens)) mexErrMsgTxt("Input frozens must be of type logical or double if completely-frozen.");
-			// HERE: it is double.
-			double* d_frozen_arr = mxGetDoubles(mx_frozens);
-			frozen_bits = new bit[N];
+			frozen_syms = new GF[N];
 			for (int i = 0; i < N; i++)
 			{
-				if (d_frozen_arr[i] == 0.0) frozen_bits[i] = false;
-				else if (d_frozen_arr[i] == 1.0) frozen_bits[i] = true;
-				else mexErrMsgTxt("Elements in frozen_bits must be binary.");
+				frozen_syms[i] = GF(m, (short)(frozen_arr[i]));
 			}
 		}
 		else
 		{
-			// HERE: it is logical.
-			bool* frozen_arr = mxGetLogicals(mx_frozens);
-
-			frozen_bits = new bit[N];
-			for (int i = 0; i < N; i++)
+			// must be logical or double.
+			if (!mxIsLogical(mx_frozens))
 			{
-				frozen_bits[i] = frozen_arr[i];
+				if (!mxIsDouble(mx_frozens)) mexErrMsgTxt("Input frozens must be of type logical or double if completely-frozen.");
+				// HERE: it is double.
+				double* d_frozen_arr = mxGetDoubles(mx_frozens);
+				frozen_bits = new bit[N];
+				for (int i = 0; i < N; i++)
+				{
+					if (d_frozen_arr[i] == 0.0) frozen_bits[i] = false;
+					else if (d_frozen_arr[i] == 1.0) frozen_bits[i] = true;
+					else mexErrMsgTxt("Elements in frozen_bits must be either 1 or 0.");
+				}
+			}
+			else
+			{
+				// HERE: it is logical.
+				bool* frozen_arr = mxGetLogicals(mx_frozens);
+
+				frozen_bits = new bit[N];
+				for (int i = 0; i < N; i++)
+				{
+					frozen_bits[i] = frozen_arr[i];
+				}
 			}
 		}
 	}
 
-	size_t row_vector[2]; row_vector[0] = 1;
+	size_t row_vector[2]; row_vector[0] = 1;	// MATLAB row vector with 1 row and N columns.
 
 	if (is_LLR)
 	{
+		// Gather channel output LLRs.
 		size_t N_rows = mxGetM(mx_channel_recv);
 		if (N_rows != 1)mexErrMsgTxt("Input LLR must be a row vector.");
 		if (!mxIsDouble(mx_channel_recv)) mexErrMsgTxt("Input LLR must be doubles.");
 		size_t N_cols = mxGetN(mx_channel_recv);
+
 		if (is_qary)
 		{
 			// Q-ary SC. 
@@ -174,23 +195,32 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 			// Construct q-ary distributions from input LLRs.
 			qary_distribution* qdist = SC_Decoder_qary::convert_llr_into_qdist(N, m, mxGetDoubles(mx_channel_recv));
 
-			if (partially_frozen)
+			if (update_decoder)
 			{
-				p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_syms, prim_element);
+				if (partially_frozen)
+				{
+					p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_syms, prim_element);
 
+				}
+				else
+				{
+					p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_bits, prim_element);
+				}
+				delete global_sc_decoder_qary;
+				global_sc_decoder_qary = p_SC_Decoder_qary;
 			}
 			else
 			{
-				p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_bits, prim_element);
+				if (!global_sc_decoder_qary) mexErrMsgTxt("Q-ary SC decoder is not constructed. decoder_config.update_decoder must be true when the first time this mex is called.");
+				p_SC_Decoder_qary = global_sc_decoder_qary;
 			}
 
 			row_vector[1] = p_SC_Decoder_qary->get_K();
 			plhs[0] = mxCreateLogicalArray(2, row_vector);
 			bit* result_ptr = mxGetLogicals(plhs[0]);
-			p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);		// Perform q-ary SC.
+			p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);			// Perform q-ary SC.
 
-			delete p_SC_Decoder_qary;
-			qary_distribution::destroyqd(qdist, N);						// ALERT: function convert_llr_into_qdist will use qary_distribution::newqd.
+			qary_distribution::destroyqd(qdist, N);											// ALERT: function convert_llr_into_qdist will use qary_distribution::newqd.
 		}
 		else
 		{
@@ -198,15 +228,24 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 			ASSERT(N_cols == N);
 			if (partially_frozen) mexErrMsgTxt("Binary code cannot be partially frozen.");
 
-			SC_Decoder* p_SC_Decoder = new SC_Decoder(N, frozen_bits);		// default: Set binary = true.
+			SC_Decoder* p_SC_Decoder = NULL;
+			if (update_decoder)
+			{
+				delete global_sc_decoder;
+				global_sc_decoder = p_SC_Decoder = new SC_Decoder(N, frozen_bits);		// default: Set binary = true.
+			}
+			else
+			{
+				if (!global_sc_decoder)mexErrMsgTxt("Binary SC decoder is not constructed. decoder_config.update_decoder must be true when the first time this mex is called.");
+				p_SC_Decoder = global_sc_decoder;
+			}
+
 			row_vector[1] = p_SC_Decoder->get_K();				// Get number of info bits.
 			plhs[0] = mxCreateLogicalArray(2, row_vector);		// Create row vector of size [1, K].
 			bit* result_ptr = mxGetLogicals(plhs[0]);
 
 			double* LLRs = mxGetDoubles(mx_channel_recv);
 			p_SC_Decoder->sc_decode(LLRs, result_ptr);			// Perform LLR-based binary SC.
-
-			delete p_SC_Decoder;
 		}
 	}
 	else
@@ -234,14 +273,25 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 
 		// Perform q-ary SC.
 		SC_Decoder_qary* p_SC_Decoder_qary = NULL;
-		if (partially_frozen)
-		{
-			p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_syms, prim_element);
 
+		if (update_decoder)
+		{
+			if (partially_frozen)
+			{
+				p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_syms, prim_element);
+
+			}
+			else
+			{
+				p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_bits, prim_element);
+			}
+			delete global_sc_decoder_qary;
+			global_sc_decoder_qary = p_SC_Decoder_qary;
 		}
 		else
 		{
-			p_SC_Decoder_qary = new SC_Decoder_qary(N, m, frozen_bits, prim_element);
+			if (!global_sc_decoder_qary) mexErrMsgTxt("Q-ary SC decoder is not constructed. decoder_config.update_decoder must be true when the first time this mex is called.");
+			p_SC_Decoder_qary = global_sc_decoder_qary;
 		}
 
 		row_vector[1] = p_SC_Decoder_qary->get_K();
@@ -250,13 +300,12 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 		p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);	// Perform q-ary SC.
 
 		qary_distribution::destroyqd(qdist, N);
-		delete p_SC_Decoder_qary;
 	}
 
 
 	delete[] frozen_syms;
-	delete[] true_u;
 	delete[] frozen_bits;
+	delete[] true_u;
 	//GF::destroy_GFTable();
 	return;
 }
