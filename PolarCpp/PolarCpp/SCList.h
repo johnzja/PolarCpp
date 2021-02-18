@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <intrin.h>
 #include <stack>
 
 /* SCL decoders. */

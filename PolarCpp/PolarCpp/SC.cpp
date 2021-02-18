@@ -1,10 +1,20 @@
-#include <intrin.h>
 #include "SC.h"
 
 #include <algorithm>
 
 
 #define min(x,y) (((x)<(y))?(x):(y))
+
+static int count_one(short x)
+{
+	int s = 0;
+	for (int i = 0; i < sizeof(short) * 8; i++)
+	{
+		if (x & 0x1) s++;
+		x >>= 1;
+	}
+	return s;
+}
 
 /* Decoders */
 SC_Decoder::SC_Decoder(int N, const bit* frozen_bits, bool binary):N(N)
@@ -293,7 +303,7 @@ SC_Decoder_qary::SC_Decoder_qary(int N, int m, const GF* frozen_syms, const GF& 
 	for (int i = 0; i < N; i++)
 	{
 		_qary_frozen_syms[i] = frozen_syms[i];
-		K += (m - __popcnt16(frozen_syms[i].x));		// count the number of 1's.
+		K += (m - count_one(frozen_syms[i].x));		// count the number of 1's.
 	}
 
 	P = qary_distribution::newqd(m, N - 1);
@@ -421,7 +431,7 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs,bool is_Geni
 		{
 			// partially frozen.
 			short partially_frozen_pattern = _qary_frozen_syms[phi].x;
-			int one_cnt = __popcnt16(partially_frozen_pattern);
+			int one_cnt = count_one(partially_frozen_pattern);
 			if (m == one_cnt)
 			{
 				// completely frozen.
