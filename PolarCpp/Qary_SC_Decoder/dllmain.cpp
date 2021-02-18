@@ -84,14 +84,16 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	bool is_Genie			= false;
 	bool update_decoder		= true;
 	bool is_list			= false;
+	bool output_probs		= false;
 
 	if (!mxIsStruct(mx_decoder_config)) mexErrMsgTxt("decoder_config must be a struct.");
-	mxArray* mx_partially_frozen, * mx_is_qary, * mx_is_LLR, * mx_is_Genie, * mx_update_decoder, * mx_is_list, * mx_L;
+	mxArray* mx_partially_frozen, * mx_is_qary, * mx_is_LLR, * mx_is_Genie, * mx_update_decoder, * mx_is_list, * mx_L, * mx_output_probs;
 	mx_partially_frozen = mxGetField(mx_decoder_config, 0, "partially_frozen");			if (mx_partially_frozen && mxIsLogical(mx_partially_frozen))	partially_frozen = mxGetLogicals(mx_partially_frozen)[0];
 	mx_is_qary = mxGetField(mx_decoder_config, 0, "is_qary");							if (mx_is_qary && mxIsLogical(mx_is_qary))						is_qary = mxGetLogicals(mx_is_qary)[0];
 	mx_is_LLR = mxGetField(mx_decoder_config, 0, "is_LLR");								if (mx_is_LLR && mxIsLogical(mx_is_LLR))						is_LLR = mxGetLogicals(mx_is_LLR)[0];
 	mx_is_Genie = mxGetField(mx_decoder_config, 0, "is_Genie");							if (mx_is_Genie && mxIsLogical(mx_is_Genie))					is_Genie = mxGetLogicals(mx_is_Genie)[0];
 	mx_is_list = mxGetField(mx_decoder_config, 0, "is_list");							if (mx_is_list && mxIsLogical(mx_is_list))						is_list = mxGetLogicals(mx_is_list)[0];
+	mx_output_probs = mxGetField(mx_decoder_config, 0, "output_probs");					if (mx_output_probs && mxIsLogical(mx_output_probs))			output_probs = mxGetLogicals(mx_output_probs)[0];
 
 	mx_L = mxGetField(mx_decoder_config, 0, "L");
 	if (is_list && !mx_L) mexErrMsgTxt("decoder_config.L must exist and be set to power of 2 when decoder_config.is_list==true.");
@@ -122,7 +124,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	GF* frozen_syms		= NULL;
 	GF* true_u			= NULL;
 	bit* frozen_bits	= NULL;
-
 	
 	// Tackle with true_u array.
 	if (is_Genie)
@@ -197,6 +198,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 		}
 	}
 
+	// Start choosing the correct decoder.
 	size_t row_vector[2]; row_vector[0] = 1;	// MATLAB row vector with 1 row and N columns.
 
 	if (is_LLR)
@@ -259,10 +261,22 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 					p_SC_Decoder_qary = global_sc_decoder_qary;
 				}
 
-				row_vector[1] = p_SC_Decoder_qary->get_K();
-				plhs[0] = mxCreateLogicalArray(2, row_vector);
-				bit* result_ptr = mxGetLogicals(plhs[0]);
-				p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);			// Perform q-ary SC.
+				if (!output_probs)
+				{
+					row_vector[1] = p_SC_Decoder_qary->get_K();
+					plhs[0] = mxCreateLogicalArray(2, row_vector);
+					bit* result_ptr = mxGetLogicals(plhs[0]);
+					p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);			// Perform q-ary SC.
+				}
+				else
+				{
+					if (!is_Genie) mexErrMsgTxt("Probability outputs are only available under Genie-SC.");
+					row_vector[1] = N;
+					row_vector[0] = (0x1 << m);
+					plhs[0] = mxCreateDoubleMatrix(row_vector[0], row_vector[1], mxComplexity::mxREAL);
+					double* result_dist = mxGetDoubles(plhs[0]);
+					p_SC_Decoder_qary->sc_decode_qary_output_dist(qdist, true_u, result_dist);
+				}
 			}
 
 			qary_distribution::destroyqd(qdist, N);											// ALERT: function convert_llr_into_qdist will use qary_distribution::newqd.
@@ -383,10 +397,22 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 				p_SC_Decoder_qary = global_sc_decoder_qary;
 			}
 
-			row_vector[1] = p_SC_Decoder_qary->get_K();
-			plhs[0] = mxCreateLogicalArray(2, row_vector);
-			bit* result_ptr = mxGetLogicals(plhs[0]);
-			p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);	// Perform q-ary SC.
+			if (!output_probs)
+			{
+				row_vector[1] = p_SC_Decoder_qary->get_K();
+				plhs[0] = mxCreateLogicalArray(2, row_vector);
+				bit* result_ptr = mxGetLogicals(plhs[0]);
+				p_SC_Decoder_qary->sc_decode_qary(qdist, is_Genie, true_u, result_ptr);	// Perform q-ary SC.
+			}
+			else
+			{
+				if (!is_Genie) mexErrMsgTxt("Probability outputs are only available under Genie-SC.");
+				row_vector[1] = N;
+				row_vector[0] = (0x1 << m);
+				plhs[0] = mxCreateDoubleMatrix(row_vector[0], row_vector[1], mxComplexity::mxREAL);
+				double* result_dist = mxGetDoubles(plhs[0]);
+				p_SC_Decoder_qary->sc_decode_qary_output_dist(qdist, true_u, result_dist);
+			}
 		}
 
 		qary_distribution::destroyqd(qdist, N);

@@ -502,6 +502,99 @@ void SC_Decoder_qary::sc_decode_qary(const qary_distribution* probs,bool is_Geni
 	}
 }
 
+void SC_Decoder_qary::sc_decode_qary_output_dist(const qary_distribution* probs, const GF* true_u, double* output_distribution)
+{
+	// output_distribution: matrix of size (q,N).
+	// Assume the array "estimated_info_bits" has length K.
+	int index_1, index_2, op_len;
+	int k = 0;
+
+	for (int phi = 0; phi < N; phi++)
+	{
+		if (phi == 0)
+		{
+			// Use channel LLRs.
+			index_1 = (0x1) << (n - 1);
+			up_calculate(probs, probs + index_1, P + index_1 - 1, alpha, index_1);
+
+			for (int i = n - 2; i >= 0; i--)
+			{
+				index_1 = (0x1) << i;				// 2
+				index_2 = index_1 << 1;			// 4
+				up_calculate(P + index_2 - 1, P + index_2 - 1 + index_1, P + index_1 - 1, alpha, index_1);
+			}
+		}
+		else if (phi == (N / 2))
+		{
+			index_1 = (0x1) << (n - 1);
+			down_calculate(probs, probs + index_1, CL + index_1 - 1, P + index_1 - 1, alpha, index_1);
+
+			for (int i = n - 2; i >= 0; i--)
+			{
+				index_1 = (0x1) << i;
+				index_2 = index_1 << 1;
+				up_calculate(P + index_2 - 1, P + index_2 - 1 + index_1, P + index_1 - 1, alpha, index_1);
+			}
+		}
+		else
+		{
+			int llr_layer = llr_layer_vec[phi];
+			index_1 = (0x1) << (llr_layer + 1);				// 4
+			index_2 = index_1 + ((0x1) << llr_layer);		// 6
+			op_len = (0x1) << llr_layer;							// 2
+
+			// Perform g function once.
+			down_calculate(P + index_1 - 1, P + index_2 - 1, CL + index_1 / 2 - 1, P + index_1 / 2 - 1, alpha, op_len);
+
+			// Peform llr_layer f functions.
+			for (int i = llr_layer - 1; i >= 0; i--)
+			{
+				index_1 = (0x1) << i;			// 1
+				index_2 = index_1 << 1;		// 2
+				up_calculate(P + index_2 - 1, P + index_2 - 1 + index_1, P + index_1 - 1, alpha, index_1);
+			}
+		}
+
+		// down to the leaf node HERE.
+		// HERE it is a q-ary leaf node.
+
+		int phi_mod_2 = phi & 0x1;
+		double* result = output_distribution + (0x1 << m) * phi;
+		for (short x = 0; x < (0x1 << m); x++)
+		{
+			result[x] = P[0].dist[x];
+		}
+		if (phi_mod_2 == 0)CL[0] = true_u[phi]; else CR[0] = true_u[phi];	// Always decode according to the right 
+
+		// partial-sum return.
+		if (phi_mod_2 == 1 && phi != (N - 1))
+		{
+			int bit_layer = bit_layer_vec[phi];
+			for (int i = 0; i < bit_layer; i++)
+			{
+				index_1 = (0x1) << i;		// 1
+				index_2 = index_1 << 1;	// 2
+
+				// do not call memcpy here.
+				for (int start = index_1 - 1; start < index_2 - 1; start++)
+				{
+					CR[index_1 + start] = CL[start] + alpha * CR[start];
+					CR[index_2 + start] = CR[start];
+				}
+			}
+
+			index_1 = (0x1) << bit_layer;	// 2
+			index_2 = index_1 << 1;			// 4
+
+			for (int start = index_1 - 1; start < index_2 - 1; start++)
+			{
+				CL[index_1 + start] = CL[start] + alpha * CR[start];
+				CL[index_2 + start] = CR[start];
+			}
+		}
+	}
+}
+
 // toolkits.
 qary_distribution* SC_Decoder_qary::convert_llr_into_qdist(int N_qary, int m, double* llr_arr)
 {
