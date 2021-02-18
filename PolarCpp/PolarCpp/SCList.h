@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <intrin.h>
 #include <stack>
 
 /* SCL decoders. */
@@ -23,6 +22,8 @@ public:
 	virtual ~SCL_decoder();
 
 	void scl_decode(const LLR* llr, bit* estimated_info_bits);
+
+	int get_K() const;
 
 protected:
 	int L;	// list size.
@@ -50,6 +51,8 @@ public:
 	virtual ~Qary_SCL_decoder();
 
 	void scl_decode(const qary_distribution* probs, bit* estimated_info_bits);
+
+	int get_K() const;
 
 protected:
 	int L, N, K, m;	

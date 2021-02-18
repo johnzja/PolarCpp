@@ -3,10 +3,13 @@
 #ifndef PCH_H
 #define PCH_H
 
+#ifndef ON_LINUX
+    #include "framework.h"
+#endif
 
-#include "framework.h"
 #include "mex.h"
 #include "../PolarCpp/GF.h"
 #include "../PolarCpp/SC.h"
+#include "../PolarCpp/SCList.h"
 
 #endif //PCH_H

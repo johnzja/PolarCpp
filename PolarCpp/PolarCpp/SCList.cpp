@@ -237,6 +237,11 @@ void SCL_decoder::scl_decode(const LLR* llr, bit* estimated_info_bits)
 	return;
 }
 
+int SCL_decoder::get_K() const
+{
+	return K;
+}
+
 /* Q-ary SCL decoder */
 Qary_SCL_decoder::Qary_SCL_decoder(int N, int m, const bit* frozen_bits, const GF& alpha, int list_size) :L(list_size), N(N), alpha(alpha), q(0x1 << m), m(m)
 {
@@ -493,4 +498,9 @@ void Qary_SCL_decoder::scl_decode(const qary_distribution* probs, bit* estimated
 		}
 	}
 	return;
+}
+
+int Qary_SCL_decoder::get_K() const
+{
+	return K * m;	// HERE K means #qary_symbols. Return number of decoded bits.
 }
