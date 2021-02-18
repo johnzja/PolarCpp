@@ -128,6 +128,10 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	if (is_Genie)
 	{
 		// Construct true_u array according to input.
+		if (nrhs == 6)	// without u!!
+		{
+			mexErrMsgTxt("Genie-aided decoder needs true_u input.");
+		}
 		double* true_u_arr = mxGetDoubles(mx_true_u);
 		true_u = new GF[N];
 		for (int i = 0; i < N; i++)
