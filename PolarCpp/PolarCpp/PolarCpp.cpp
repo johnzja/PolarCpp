@@ -9,13 +9,14 @@
 #include "SC.h"
 #include "SCList.h"
 
+#include <Windows.h>
+
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <vector>
 #include <random>
 #include <time.h>
-
 
 using namespace std;
 
@@ -203,6 +204,9 @@ double test_SC(int min_errors = 800)
 	std::default_random_engine e;
 	std::normal_distribution<double> n(0, 1);
 
+	// Initialize timer.
+	LARGE_INTEGER freq, t1, t2;
+	QueryPerformanceFrequency(&freq);
 	// Study polar codes using normal distribution generator.
 	// bit frozen_bits[] = { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, };
 	
@@ -227,6 +231,9 @@ double test_SC(int min_errors = 800)
 	int block_error_cnt = 0;
 	int N_runs = 0;
 
+	// Start timer.
+	QueryPerformanceCounter(&t1);
+
 	/* START simulation */
 	while(block_error_cnt < min_errors)
 	{
@@ -240,7 +247,7 @@ double test_SC(int min_errors = 800)
 		// Step3: Add noise.
 		for (int i = 0; i < N; i++)
 		{
-			y[i] = 1 - 2 * bits_encoded[i];		// BPSK
+			y[i] = 1 - 2 * bits_encoded[i];			// BPSK
 			y[i] += sigma * n(e);					// Add noise
 			y[i] = 2 * y[i] / (sigma*sigma);		// Calculate LLR.
 		}
@@ -260,6 +267,8 @@ double test_SC(int min_errors = 800)
 		N_runs++;
 	}
 
+	QueryPerformanceCounter(&t2);
+
 	double r;
 	cout << "BLER = " << (r = ((double)block_error_cnt) / N_runs) << endl;
 
@@ -268,7 +277,14 @@ double test_SC(int min_errors = 800)
 	delete[] y;
 	delete[] bits_decoded;
 
-	cout << "Test SC complete!" << endl;
+	double time_elapsed = double((t2.QuadPart - t1.QuadPart)) / freq.QuadPart;
+	cout << "Test binary SC complete within " << (time_elapsed * 1e3) << "ms" << endl;
+
+	double fps = N_runs / time_elapsed;
+
+	cout << "Achieve simulation speed of " << fps << " frames per second, i.e. " << fps * M / 1e6 << " Mbps, and " << min_errors / time_elapsed \
+		<< " error event/s." << endl;
+
 	return r;
 }
 
@@ -431,8 +447,13 @@ double test_SCL(int min_errors = 800)
 
 double test_qary_SCL(int min_errors = 800)
 {
+	// Initialize random generator.
 	std::default_random_engine e;
 	std::normal_distribution<double> n(0, 1);
+
+	// Initialize timer.
+	LARGE_INTEGER freq, t1, t2;
+	QueryPerformanceFrequency(&freq);
 
 	// Study polar codes using normal distribution generator.
 	// Use (8,4) 4-ary code with partially frozen.
@@ -440,10 +461,10 @@ double test_qary_SCL(int min_errors = 800)
 
 	int N = 8, M = 4;
 	int m = 2;						// 4-ary code.
-	int L = 16;
+	int L = 16;						// List size.
 
 	double R = 0.5;					// Code rate = 0.5
-	double Ebn0 = 2.5;
+	double Ebn0 = 5;
 	double sigma = 1 / sqrt(2 * R) * pow(10, -Ebn0 / 20);
 	cout << "Evaluate 4-ary SCL @ Eb/n0 = " << Ebn0 << ", L = " << L << endl;
 	cout << "Code configuration: (" << N << ", " << M << ") quaternary Polar code" << endl;
@@ -467,6 +488,9 @@ double test_qary_SCL(int min_errors = 800)
 
 	int block_error_cnt = 0;
 	int N_runs = 0;
+
+	// Start timer.
+	QueryPerformanceCounter(&t1);
 
 	/* START simulation */
 	while (block_error_cnt < min_errors)
@@ -497,6 +521,8 @@ double test_qary_SCL(int min_errors = 800)
 		N_runs++;
 	}
 
+	QueryPerformanceCounter(&t2);
+
 	double r;
 	cout << "BLER = " << (r = ((double)block_error_cnt) / N_runs) << endl;
 
@@ -506,7 +532,13 @@ double test_qary_SCL(int min_errors = 800)
 	qary_distribution::destroyqd(y, N);
 	delete[] bits_decoded;
 
-	cout << "Test q-ary SCL complete!" << endl;
+	double time_elapsed = double((t2.QuadPart - t1.QuadPart)) / freq.QuadPart;
+	cout << "Test q-ary SCL complete within " << (time_elapsed * 1e3) << "ms" << endl;
+
+	double fps = N_runs / time_elapsed;
+	
+	cout << "Achieve simulation speed of " << fps << " frames per second, i.e. " << fps * M_bits / 1e6 << " Mbps, and " << min_errors / time_elapsed \
+		<< " error event/s." << endl;
 	return r;
 }
 
@@ -519,10 +551,10 @@ int main()
 
 	test_qary_SCL(3200);
 	cout << endl;
-	test_qary_SC(3200);
-	cout << endl;
-	test_SCL(3200);
-	cout << endl;
+	//test_qary_SC(3200);
+	//cout << endl;
+	//test_SCL(3200);
+	//cout << endl;
 	test_SC(3200);
 	cout << endl;
 
