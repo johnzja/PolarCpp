@@ -437,7 +437,11 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 	}
 
 	int d = s - (N_bins - 1);
-	if (d == 1)
+	if (d == 0)
+	{
+		return;
+	}
+	else if (d == 1)
 	{
 		// Find the max index.
 		int max_index = 0;
