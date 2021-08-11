@@ -441,7 +441,7 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 	{
 		return;
 	}
-	else if (d == 1)
+	else if (d > 0)
 	{
 		// Find the max index.
 		int max_index = 0;
@@ -454,9 +454,9 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 				max_index = i;
 			}
 		}
-		idx[max_index]--;
+		idx[max_index] -= d;
 	}
-	else if (d == -1)
+	else if (d < 0)
 	{
 		int min_index = 0;
 		int midx = idx[0];
@@ -468,9 +468,8 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 				min_index = i;
 			}
 		}
-		idx[min_index]++;
+		idx[min_index] -= d;
 	}
-	else mexErrMsgTxt("convert_dist_into_index: unknown error.");
 
 	return;
 }
