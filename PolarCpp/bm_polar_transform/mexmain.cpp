@@ -7,7 +7,8 @@
 #include <pthread.h>
 #include <queue>
 #include <mutex>
-
+#include <string.h>
+        
 #pragma comment(lib, "pthreadVC2.lib")
 
 #define fetch_element(arr, N, i0, i1, i2) (arr[(i0) + (N)*(i1) + (N)*(N)*(i2)])
@@ -81,8 +82,7 @@ void dispatch_job(int N_bins, int N_threads, int N_jobsEachThread, int N_jobsEac
 
 	if (thread_infos[i].pJobIndex == NULL)
 		thread_infos[i].pJobIndex = new int[N_jobsEachThreadMax];
-	memcpy_s(thread_infos[i].pJobIndex, N_jobsEachThread * sizeof(int),
-		pJobIndex, N_jobsEachThread * sizeof(int));
+	memcpy(thread_infos[i].pJobIndex, pJobIndex, N_jobsEachThread * sizeof(int));
 
 	thread_infos[i].need_to_join = true;
 	pthread_create(&thread_pool[i], &thread_pool_attr[i], worker_func, (void*)(&thread_infos[i]));
