@@ -440,36 +440,36 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 {
 	// Step1: Calculate all the a[i] and their order.
 	int s = 0;
-	for(int i = 0; i < 4; i++)
+	for (int i = 0; i < 4; i++)
 	{
 		s += (idx[i] = int(floor((N_bins - 1) * probs[i])));
 	}
 
 	int sum_a = N_bins - 1 - s;	// sum_a in {0, 1, 2, 3}.
 
-	if(sum_a == 0)
+	if (sum_a == 0)
 	{
 		return;
 	}
 	else
 	{
 		ordered_double a[4];
-		for(int i=0; i<4; i++)
+		for (int i = 0; i < 4; i++)
 		{
-			a[i].x = (N_bins-1)*probs[i] - idx[i];
+			a[i].x = (N_bins - 1) * probs[i] - idx[i];
 			a[i].index = i;
 		}
 
 		// sort the a's.
-		std::sort(a, a+4, [](const ordered_double& x1, const ordered_double& x2)->bool {return x1.x < x2.x});
+		std::sort(a, a + 4, [](const ordered_double& x1, const ordered_double& x2)->bool {return x1.x < x2.x; });
 
-		if(sum_a == 1)
+		if (sum_a == 1)
 		{
 			int max_a_idx = a[3].index;
 			idx[max_a_idx]++;
 			return;
 		}
-		else if(sum_a == 2)
+		else if (sum_a == 2)
 		{
 			int a_order_2 = a[2].index;
 			int a_order_3 = a[3].index;
@@ -477,7 +477,7 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 			idx[a_order_3] ++;
 			return;
 		}
-		else if(sum_a == 3)
+		else if (sum_a == 3)
 		{
 			int a_order_1 = a[1].index;
 			int a_order_2 = a[2].index;
@@ -488,7 +488,7 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 		}
 		else mexErrMsgTxt("Unknown Error!");	// This may cause MATLAB corruption.
 	}
-	
+
 	// for (int i = 0; i < 4; i++)
 	// {
 	// 	s += (idx[i] = int(round((N_bins - 1) * probs[i])));
