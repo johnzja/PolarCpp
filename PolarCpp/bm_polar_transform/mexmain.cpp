@@ -1,12 +1,9 @@
 ﻿// mexmain.cpp : mexFunction is the entry point of a MEX.
 #include "pch.h"
-#include <assert.h>
-#include <cmath>
 
+#include <assert.h>
 #include <semaphore.h>
 #include <pthread.h>
-#include <queue>
-#include <mutex>
 #include <string.h>
         
 #pragma comment(lib, "pthreadVC2.lib")
@@ -358,68 +355,107 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	pthread_attr_t* thread_pool_attr	= new pthread_attr_t[N_threads];
 	thread_info* thread_infos			= new thread_info[N_threads];
 
-
 	sem_init(&sem, 0, N_threads);	// initial value is N_threads.
-	for (int i = 0; i < N_threads; i++)
-	{
-		thread_infos[i].thread_idx = i;
-		thread_infos[i].job_finished = false;
-		thread_infos[i].need_to_join = false;
-		thread_infos[i].is_down_transform = is_down_transform;
 
-		thread_infos[i].N_bins = N_bins;
-		thread_infos[i].dist1 = dist_1;
-		thread_infos[i].dist2 = dist_2;
-		thread_infos[i].p_bin_centers = p_bin_centers;
-		thread_infos[i].KernelIndexMat0 = KernelIndexMat0;
-		thread_infos[i].KernelIndexMat1 = KernelIndexMat1;
-		thread_infos[i].KernelIndexVec0 = KernelIndexVec0;
-		thread_infos[i].KernelIndexVec1 = KernelIndexVec1;
-		thread_infos[i].private_dist_ret = NULL;
-		thread_infos[i].pJobIndex = NULL;
+	if(N_jobsEachThread > 1)
+	{
+		for (int i = 0; i < N_threads; i++)
+		{
+			thread_infos[i].thread_idx = i;
+			thread_infos[i].job_finished = false;
+			thread_infos[i].need_to_join = false;
+			thread_infos[i].is_down_transform = is_down_transform;
 
-		pthread_attr_init(thread_pool_attr + i);
-		pthread_attr_setscope(thread_pool_attr + i, PTHREAD_SCOPE_PROCESS);
-		pthread_attr_setdetachstate(thread_pool_attr + i, PTHREAD_CREATE_JOINABLE);
+			thread_infos[i].N_bins = N_bins;
+			thread_infos[i].dist1 = dist_1;
+			thread_infos[i].dist2 = dist_2;
+			thread_infos[i].p_bin_centers = p_bin_centers;
+			thread_infos[i].KernelIndexMat0 = KernelIndexMat0;
+			thread_infos[i].KernelIndexMat1 = KernelIndexMat1;
+			thread_infos[i].KernelIndexVec0 = KernelIndexVec0;
+			thread_infos[i].KernelIndexVec1 = KernelIndexVec1;
+			thread_infos[i].private_dist_ret = NULL;
+			thread_infos[i].pJobIndex = NULL;
 
-		idle_threads.push(i);	// Threads are not yet dispatched, so no mutex is needed.
-	}
-	
-	int idxJob = 0;
-	for (int i0 = 0; i0 < N_bins; i0++)
-	{
-		// dispatch at most N_threads.
-		if (KernelIndexVec0[i0])
-		{
-			pJobIndex[idxJob++] = i0;
+			pthread_attr_init(thread_pool_attr + i);
+			pthread_attr_setscope(thread_pool_attr + i, PTHREAD_SCOPE_PROCESS);
+			pthread_attr_setdetachstate(thread_pool_attr + i, PTHREAD_CREATE_JOINABLE);
+
+			idle_threads.push(i);	// Threads are not yet dispatched, so no mutex is needed.
 		}
-		if (idxJob == N_jobsEachThread)
+		
+		int idxJob = 0;
+		for (int i0 = 0; i0 < N_bins; i0++)
 		{
-			idxJob = 0;
-			dispatch_job(N_bins, N_threads, N_jobsEachThread, N_jobsEachThread, dist_ret, thread_pool, thread_pool_attr, thread_infos, pJobIndex);
+			// dispatch at most N_threads.
+			if (KernelIndexVec0[i0])
+			{
+				pJobIndex[idxJob++] = i0;
+			}
+			if (idxJob == N_jobsEachThread)
+			{
+				idxJob = 0;
+				dispatch_job(N_bins, N_threads, N_jobsEachThread, N_jobsEachThread, dist_ret, thread_pool, thread_pool_attr, thread_infos, pJobIndex);
+			}
 		}
-	}
-	if (idxJob > 0)
-	{
-		dispatch_job(N_bins, N_threads, idxJob, N_jobsEachThread, dist_ret, thread_pool, thread_pool_attr, thread_infos, pJobIndex);
-	}
-	
-	// Wait for all the threads.
-	for (int i = 0; i < N_threads; i++)
-	{
-		if (thread_infos[i].need_to_join)
+		if (idxJob > 0)
 		{
-			aggregate_thread_result(N_bins, dist_ret, thread_pool, thread_infos, i);
+			dispatch_job(N_bins, N_threads, idxJob, N_jobsEachThread, dist_ret, thread_pool, thread_pool_attr, thread_infos, pJobIndex);
 		}
-		delete[] thread_infos[i].private_dist_ret;
-		delete[] thread_infos[i].pJobIndex;
+		
+		// Wait for all the threads.
+		for (int i = 0; i < N_threads; i++)
+		{
+			if (thread_infos[i].need_to_join)
+			{
+				aggregate_thread_result(N_bins, dist_ret, thread_pool, thread_infos, i);
+			}
+			delete[] thread_infos[i].private_dist_ret;
+			delete[] thread_infos[i].pJobIndex;
+		}
+
+		
 	}
+	else
+	{
+		thread_info ti;
+		ti.dist1 = dist_1;
+		ti.dist2 = dist_2;
+		ti.thread_idx = -1;				// Main thread do the job itself.
+		ti.job_finished = false;
+		ti.need_to_join = false;
+		ti.is_down_transform = is_down_transform;
+
+		ti.N_bins = N_bins;
+		ti.p_bin_centers = p_bin_centers;
+		ti.KernelIndexMat0 = KernelIndexMat0;
+		ti.KernelIndexMat1 = KernelIndexMat1;
+		ti.KernelIndexVec0 = KernelIndexVec0;
+		ti.KernelIndexVec1 = KernelIndexVec1;
+		ti.private_dist_ret = dist_ret;
+		ti.pJobIndex = new int;
+
+		for (int i0 = 0; i0 < N_bins; i0++)
+		{
+			if (KernelIndexVec0[i0])
+			{
+				*(ti.pJobIndex) = i0;
+				ti.N_jobs = 1;
+				worker_func((void*)(&ti));
+			}
+		}
+
+		delete ti.pJobIndex;
+		ti.pJobIndex = NULL;
+	}
+
+	sem_destroy(&sem);
 
 	delete[] pJobIndex;
 	delete[] thread_pool;
 	delete[] thread_pool_attr;
 	delete[] thread_infos;
-	sem_destroy(&sem);
+	
 
 	delete[] i_add_table;
 	delete[] i_mult_table;
@@ -428,7 +464,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 }
 
 
-#include <algorithm>
+
 
 typedef struct
 {
@@ -459,7 +495,8 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 			a[i].x = (N_bins - 1) * probs[i] - idx[i];
 			a[i].index = i;
 		}
-
+		
+		if (sum_a == 0) return;
 		// sort the a's.
 		std::sort(a, a + 4, [](const ordered_double& x1, const ordered_double& x2)->bool {return x1.x < x2.x; });
 
@@ -486,7 +523,17 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 			idx[a_order_2] ++;
 			idx[a_order_3] ++;
 		}
-		else mexErrMsgTxt("Unknown Error!");	// This may cause MATLAB corruption.
+		else if (sum_a == 4)
+		{
+			idx[0] ++;
+			idx[1] ++;
+			idx[2] ++;
+			idx[3] ++;
+		}
+		else if (sum_a > 4)
+		{
+			mexErrMsgTxt("Unknown error.");
+		}
 	}
 
 	// for (int i = 0; i < 4; i++)

@@ -7,7 +7,12 @@
 #ifndef PCH_H
 #define PCH_H
 
-// 添加要在此处预编译的标头
+// Pre-compile header files.
 #include "framework.h"
 #include "mex.h"
+#include <cmath>
+#include <queue>
+#include <mutex>
+#include <algorithm>
+
 #endif //PCH_H
