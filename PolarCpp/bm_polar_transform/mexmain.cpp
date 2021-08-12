@@ -428,48 +428,106 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 }
 
 
+#include <algorithm>
+
+typedef struct
+{
+	double x;
+	int index;
+} ordered_double;
+
 void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 {
+	// Step1: Calculate all the a[i] and their order.
 	int s = 0;
-	for (int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; i++)
 	{
-		s += (idx[i] = int(round((N_bins - 1) * probs[i])));
+		s += (idx[i] = int(floor((N_bins - 1) * probs[i])));
 	}
 
-	int d = s - (N_bins - 1);
-	if (d == 0)
+	int sum_a = N_bins - 1 - s;	// sum_a in {0, 1, 2, 3}.
+
+	if(sum_a == 0)
 	{
 		return;
 	}
-	else if (d > 0)
+	else
 	{
-		// Find the max index.
-		int max_index = 0;
-		int midx = idx[0];
-		for (int i = 1; i < 4; i++)
+		ordered_double a[4];
+		for(int i=0; i<4; i++)
 		{
-			if (midx < idx[i])
-			{
-				midx = idx[i];
-				max_index = i;
-			}
+			a[i].x = (N_bins-1)*probs[i] - idx[i];
+			a[i].index = i;
 		}
-		idx[max_index] -= d;
-	}
-	else if (d < 0)
-	{
-		int min_index = 0;
-		int midx = idx[0];
-		for (int i = 1; i < 4; i++)
+
+		// sort the a's.
+		std::sort(a, a+4, [](const ordered_double& x1, const ordered_double& x2)->bool {return x1.x < x2.x});
+
+		if(sum_a == 1)
 		{
-			if (midx > idx[i])
-			{
-				midx = idx[i];
-				min_index = i;
-			}
+			int max_a_idx = a[3].index;
+			idx[max_a_idx]++;
+			return;
 		}
-		idx[min_index] -= d;
+		else if(sum_a == 2)
+		{
+			int a_order_2 = a[2].index;
+			int a_order_3 = a[3].index;
+			idx[a_order_2] ++;
+			idx[a_order_3] ++;
+			return;
+		}
+		else if(sum_a == 3)
+		{
+			int a_order_1 = a[1].index;
+			int a_order_2 = a[2].index;
+			int a_order_3 = a[3].index;
+			idx[a_order_1] ++;
+			idx[a_order_2] ++;
+			idx[a_order_3] ++;
+		}
+		else mexErrMsgTxt("Unknown Error!");	// This may cause MATLAB corruption.
 	}
+	
+	// for (int i = 0; i < 4; i++)
+	// {
+	// 	s += (idx[i] = int(round((N_bins - 1) * probs[i])));
+	// }
+
+	// int d = s - (N_bins - 1);
+	// if (d == 0)
+	// {
+	// 	return;
+	// }
+	// else if (d > 0)
+	// {
+	// 	// Find the max index.
+	// 	int max_index = 0;
+	// 	int midx = idx[0];
+	// 	for (int i = 1; i < 4; i++)
+	// 	{
+	// 		if (midx < idx[i])
+	// 		{
+	// 			midx = idx[i];
+	// 			max_index = i;
+	// 		}
+	// 	}
+	// 	idx[max_index] -= d;
+	// }
+	// else if (d < 0)
+	// {
+	// 	int min_index = 0;
+	// 	int midx = idx[0];
+	// 	for (int i = 1; i < 4; i++)
+	// 	{
+	// 		if (midx > idx[i])
+	// 		{
+	// 			midx = idx[i];
+	// 			min_index = i;
+	// 		}
+	// 	}
+	// 	idx[min_index] -= d;
+	// }
 
 	return;
 }
