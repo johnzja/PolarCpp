@@ -357,7 +357,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 
 	sem_init(&sem, 0, N_threads);	// initial value is N_threads.
 
-	if(N_jobsEachThread > 1)
+	if(N_threads > 1)
 	{
 		for (int i = 0; i < N_threads; i++)
 		{
