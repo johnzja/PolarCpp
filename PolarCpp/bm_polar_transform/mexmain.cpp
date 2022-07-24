@@ -16,6 +16,7 @@ std::mutex mtx;
 
 void convert_dist_into_index(int idx[4], double probs[4], int N_bins);
 void* worker_func(void* pthread_info);
+void exit_func();
 
 typedef struct
 {
@@ -337,6 +338,8 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[])
 	}
 	else mexErrMsgTxt("GF_info error.");
 
+	mexAtExit(exit_func);
+
 	// Construct the output BM.
 	size_t size_vec[3];
 	for (int i = 0; i < 3; i++) size_vec[i] = N_bins;
@@ -476,9 +479,12 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 {
 	// Step1: Calculate all the a[i] and their order.
 	int s = 0;
+	double t[4];
+
 	for (int i = 0; i < 4; i++)
 	{
-		s += (idx[i] = int(floor((N_bins - 1) * probs[i])));
+		t[i] = (N_bins - 1) * probs[i];
+		s += (idx[i] = int(floor(t[i])));
 	}
 
 	int sum_a = N_bins - 1 - s;	// sum_a in {0, 1, 2, 3}.
@@ -492,7 +498,7 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 		ordered_double a[4];
 		for (int i = 0; i < 4; i++)
 		{
-			a[i].x = (N_bins - 1) * probs[i] - idx[i];
+			a[i].x = t[i] - idx[i];
 			a[i].index = i;
 		}
 		
@@ -577,4 +583,9 @@ void convert_dist_into_index(int idx[4], double probs[4], int N_bins)
 	// }
 
 	return;
+}
+
+void exit_func()
+{
+	mexPrintf("BPT MEX unloaded.\n");
 }
