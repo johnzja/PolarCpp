@@ -2,6 +2,7 @@
 //
 
 #define _CRTDBG_MAP_ALLOC
+#define _CRT_SECURE_NO_WARNINGS
 
 #include <stdlib.h>
 #include <crtdbg.h>
@@ -199,6 +200,26 @@ void qary_modem_bpsk(const GF* x, qary_distribution* y, int N, double sigma_chan
 	delete[] bpsk_posteriori_1;
 }
 
+void DisplayProgressBar(int n)
+{
+	// 0 <= n <= 100. 
+	if (n < 0) n = 0;
+	if (n > 100) n = 100;
+
+	static char x[200];
+	sprintf(x, "%3d", n);
+	x[3] = '%';
+
+	for (int i = 0; i < n; i++)
+	{
+		x[4 + i] = '=';
+	}
+	x[4 + n] = 0;
+	printf("\r%s>", x);
+	if (n == 100) printf("\n");
+	fflush(stdout);
+}
+
 double test_SC(int min_errors = 800)
 {
 	std::default_random_engine e;
@@ -261,6 +282,8 @@ double test_SC(int min_errors = 800)
 			if (bits_decoded[i] != bits_to_encode[i])
 			{
 				block_error_cnt++;
+				if (block_error_cnt % 200 == 0) DisplayProgressBar(floor(double(block_error_cnt) / double(min_errors) * 100.0));
+			
 				break;
 			}
 		}
@@ -351,6 +374,7 @@ double test_qary_SC(int min_errors = 800)
 			if (bits_decoded[i] != bits_to_encode[i])
 			{
 				block_error_cnt++;
+				if (block_error_cnt % 200 == 0) DisplayProgressBar(floor(double(block_error_cnt) / double(min_errors) * 100.0));
 				break;
 			}
 		}
@@ -427,6 +451,7 @@ double test_SCL(int min_errors = 800)
 			if (bits_decoded[i] != bits_to_encode[i])
 			{
 				block_error_cnt++;
+				if (block_error_cnt % 200 == 0) DisplayProgressBar(floor(double(block_error_cnt) / double(min_errors) * 100.0));
 				break;
 			}
 		}
@@ -515,6 +540,7 @@ double test_qary_SCL(int min_errors = 800)
 			if (bits_decoded[i] != bits_to_encode[i])
 			{
 				block_error_cnt++;
+				if (block_error_cnt % 20 == 0) DisplayProgressBar(floor(double(block_error_cnt) / double(min_errors) * 100.0));
 				break;
 			}
 		}
